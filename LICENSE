@@ -1,3 +1,18 @@
+   Main code is under Apache License Version 2.0 as per below, except
+   code modified from:
+   
+   1. The examples in SuperCollider
+      https://github.com/supercollider/example-plugins/blob/master/03-AnalogEcho/AnalogEcho.cpp, modified in c_src/granulix_analog_echo.c.
+      The examples repository has no explicit license but the include files are
+      under GPL-3.0 license.
+
+   2. Synthex application - no known license.
+      https://github.com/bitgamma/synthex
+      Modified files are: lib/filter/{moog,biquad}.ex
+      
+
+
+
                                  Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
@@ -186,7 +201,7 @@
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright [yyyy] [name of copyright owner]
+   Copyright 2019  Mikael Karlsson <mikael.karlsson@creado.se>.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
