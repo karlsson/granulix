@@ -4,11 +4,13 @@
 
 This is an experimental application and a proof of concept attempt to make sound synthesis in Elixir using processes as central part in the architecture and to make it fast enough for real-time play.
 
-Granulix makes use of the [Xalsa](https://hexdocs.pm/xalsa/readme.html) application which expects frames to be in a binary array of 32 bit floats for the C api.
+Granulix makes use of the [Xalsa](https://github.com/karlsson/xalsa) application which expects frames to be in a binary array of 32 bit floats for the C api.
 The Granulix.Math module holds a helper function to convert from an Elixir list of floats.
 Normally one do not need to create the binary arrays oneself, but instead use some of the Granulix.Generator.* modules.
 
-Granulix uses NIFs for generating and transforming ẗhe frames in a similar way as Supercollider (SC) uses UGens. The Granulix.Reverb.AnalogEcho module and granulix_analog_echo.c file combined are translated from the SC [AnalogEcho](https://github.com/supercollider/example-plugins/blob/master/03-AnalogEcho/AnalogEcho.cpp) example as a comparison.
+Many modules like the Biquad and Moog filters have used the [Synthex](https://github.com/bitgamma/synthex) application as input and been converted to use NIFs.
+
+Granulix uses NIFs for generating and transforming ẗhe frames in a similar way as Supercollider (SC) uses UGens. The [granulix_analog_echo](https://github.com/karlsson/granulix_analog_echo) plugin application is translated from the SC [AnalogEcho](https://github.com/supercollider/example-plugins/blob/master/03-AnalogEcho/AnalogEcho.cpp) example as a comparison. The plugin is pulled in in Granulix as a dependency.
 
 NIF resources are created to keep state in the C-code between subsequent calls for frames generation or transformation (filtering etc.). A reference to the resource is passed to the Elixir side for this.
 

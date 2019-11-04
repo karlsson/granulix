@@ -47,10 +47,12 @@ defmodule Granulix.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
       {:ex_doc, "~> 0.20.2", only: :dev, runtime: false},
-      # {:xalsa, git: "https://github.com/karlsson/xalsa.git"}
-      {:xalsa, "~> 0.2.0"}
+      {:xalsa, "~> 0.2.0"},
+      {:granulix_protocol,
+       git: "https://github.com/karlsson/granulix_protocol.git"},
+      {:granulix_analog_echo,
+       git: "https://github.com/karlsson/granulix_analog_echo.git"}
     ]
   end
 

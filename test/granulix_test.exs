@@ -7,7 +7,7 @@ defmodule GranulixTest do
   alias Granulix.Generator
   alias Granulix.Generator.Oscillator, as: Osc
   alias Granulix.Generator.Noise
-  alias Granulix.Reverb.AnalogEcho
+  alias Granulix.Plugin.AnalogEcho
   alias Granulix.Filter.Biquad
 
   setup do
@@ -257,9 +257,8 @@ defmodule GranulixTest do
 
   test "Hi Hat", context do
     rate = context[:ctx].rate
-    period_size = context[:ctx].period_size
-    openhat(rate, period_size)
-    closehat(rate, period_size)
+    openhat(rate)
+    closehat(rate)
     log_max_gauges()
   end
 
@@ -328,10 +327,10 @@ defmodule GranulixTest do
     |> Stream.map(fn {s, c} -> Ma.mul(Ma.add(s, c), 0.4) end)
   end
 
-  defp openhat(rate, period_size), do: hihat(rate, period_size, 0.3)
-  defp closehat(rate, period_size), do: hihat(rate, period_size, 0.1)
+  defp openhat(rate), do: hihat(rate, 0.3)
+  defp closehat(rate), do: hihat(rate, 0.1)
 
-  defp hihat(rate, period_size, dur) do
+  defp hihat(rate, dur) do
     Granulix.Stream.new(Noise.white())
     |> Granulix.Stream.new(Biquad.lowpass(rate, 6000, 1.2))
     |> Granulix.Stream.new(Biquad.highpass(rate, 2000, 1.2))
