@@ -3,6 +3,10 @@ defmodule Granulix.Generator.Oscillator do
 
   defstruct [:frequency, :ref]
 
+  @type frequency() :: number() | Enumerable.number()
+  @type oscillator() :: %Oscillator{frequency: frequency(), ref: reference()}
+
+  @typedoc false
   @type osc_type :: :sin | :saw | :triangle
 
   # -----------------------------------------------------------
@@ -25,28 +29,29 @@ defmodule Granulix.Generator.Oscillator do
   end
 
   # -----------------------------------------------------------
-  @doc "Create new Osc"
-  @spec sin(rate :: integer(), frequency :: number()) :: %Oscillator{}
+
+  @spec sin(rate :: integer(), frequency :: frequency()) :: oscillator()
   def sin(rate, frequency \\ 440.0) do
     %Oscillator{ref: osc_ctor(rate, :sin), frequency: frequency}
   end
 
-  @spec saw(rate :: integer(), frequency :: number()) :: %Oscillator{}
+  @spec saw(rate :: integer(), frequency :: frequency()) :: oscillator()
   def saw(rate, frequency \\ 440.0) do
     %Oscillator{ref: osc_ctor(rate, :saw), frequency: frequency}
   end
 
-  @spec triangle(rate :: integer(), frequency :: number()) :: %Oscillator{}
+  @spec triangle(rate :: integer(), frequency :: frequency()) :: oscillator()
   def triangle(rate, frequency \\ 440.0) do
     %Oscillator{ref: osc_ctor(rate, :triangle), frequency: frequency}
   end
 
   @doc "Get next no of frames"
-  @spec next(%Oscillator{ref: reference(), frequency: float()}, no_of_frames :: integer()) :: binary()
+  @spec next(oscillator(), no_of_frames :: integer()) :: binary()
   def next(%Oscillator{ref: ref, frequency: frequency}, no_of_frames) do
     osc_next(ref, 1.0 * frequency, no_of_frames)
   end
 
+  @spec stream(oscillator(), no_of_frames :: integer()) :: Enumerable.binary()
   def stream(osc = %Oscillator{frequency: freqin}, no_of_frames) do
     cond do
       is_number(freqin) ->

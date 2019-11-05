@@ -5,6 +5,7 @@ defmodule GranulixTest do
   alias Granulix.Util
   alias Granulix.Time.{MsTime, PlayTime}
   alias Granulix.Generator
+  alias Granulix.Generator.Lfo
   alias Granulix.Generator.Oscillator, as: Osc
   alias Granulix.Generator.Noise
   alias Granulix.Plugin.AnalogEcho
@@ -183,9 +184,9 @@ defmodule GranulixTest do
 
   test "stream test sinus", context do
     rate = context[:ctx].rate
-    fm = ktriangle(4) |> Stream.map(&(&1 * 20 + 440))
+    fm = Lfo.triangle(context[:ctx], 4) |> Stream.map(&(&1 * 20 + 440))
     # You can have a stream as modulating frequency input for osc
-    Granulix.Stream.new(%{Osc.sin(rate) | frequency: fm})
+    Granulix.Stream.new(Osc.sin(rate, fm))
     |> Util.Stream.pan(0.5)
     |> Util.Stream.dur(5.0, rate)
     |> Granulix.Stream.out()
@@ -199,7 +200,7 @@ defmodule GranulixTest do
     osc = Osc.saw(rate)
     no_of_frames = context[:ctx].period_size
 
-    ksin(4, context[:ctx])
+    Lfo.sin(context[:ctx], 4)
     |> Stream.map(&(&1 * 20 + 220))
     |> Stream.map(fn freq -> Generator.next(%{osc | frequency: freq}, no_of_frames) end)
     |> Stream.map(fn frames -> Ma.mul(frames, 0.3) end)
@@ -213,13 +214,13 @@ defmodule GranulixTest do
 
   test "stream test triangle", context do
     rate = context[:ctx].rate
-    fm = ksin(4, context[:ctx]) |> Stream.map(&(&1 * 10 + 320))
+    fm = Lfo.sin(context[:ctx], 4) |> Stream.map(&(&1 * 10 + 320))
 
     Granulix.Stream.new(%{Osc.triangle(rate) | frequency: fm})
     |> senvelope(2.0)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
     |> Granulix.Stream.new(AnalogEcho.init(rate, 0.3))
-    |> Stream.zip(ksin(1.5, context[:ctx]))
+    |> Stream.zip(Lfo.sin(context[:ctx], 1.5))
     |> Stream.map(fn {frames, panning} -> Granulix.Util.pan(frames, panning) end)
     |> Util.Stream.dur(5.0, rate)
     |> Granulix.Stream.out()
@@ -229,7 +230,7 @@ defmodule GranulixTest do
   end
 
   test "stream test lowpass", context do
-    fm = ktriangle(0.25) |> Stream.map(&(&1 * 200 + 320))
+    fm = Lfo.triangle(context[:ctx], 0.25) |> Stream.map(&(&1 * 200 + 320))
     # You can have a stream as modulating frequency input for osc
     Granulix.Stream.new(%{Osc.sin(context[:ctx].rate) | frequency: fm})
     |> Granulix.Stream.new(Biquad.lowpass(context[:ctx].rate, 320, 10))
@@ -242,7 +243,7 @@ defmodule GranulixTest do
   end
 
   test "stream test highpass", context do
-    fm = ktriangle(0.25) |> Stream.map(&(&1 * 200 + 320))
+    fm = Lfo.triangle(context[:ctx], 0.25) |> Stream.map(&(&1 * 200 + 320))
     # You can have a stream as modulating frequency input for osc
     Granulix.Stream.new(%{Osc.sin(context[:ctx].rate) | frequency: fm})
     |> Stream.map(fn frames -> Ma.mul(frames, 0.4) end)
@@ -265,8 +266,8 @@ defmodule GranulixTest do
   test "Moog test", context do
     rate = context[:ctx].rate
     streamf = fn(freq) ->
-      fm = ktriangle(5.0) |> Stream.map(&(&1 * 5 + freq))
-      panmove = ktriangle(1.0) |> Stream.map(&(&1*0.4 + 0.5 ))
+      fm = Lfo.triangle(context[:ctx], 5.0) |> Stream.map(&(&1 * 5 + freq))
+      panmove = Lfo.triangle(context[:ctx], 1.0) |> Stream.map(&(&1*0.4 + 0.5 ))
       # You can have a stream as modulating frequency input for osc
       Granulix.Stream.new(%{Osc.sin(rate) | frequency: fm})
       |> Granulix.Stream.new(Granulix.Filter.Moog.new(0.1, 3.2))
@@ -414,43 +415,6 @@ defmodule GranulixTest do
     end)
 
     frames
-  end
-
-  defp ksin(freq, ctx) do
-    step = 2 * :math.pi() * freq * ctx.period_size / ctx.rate
-
-    Stream.unfold(
-      0,
-      fn acc ->
-        next = acc + step
-        {:math.sin(acc), next}
-      end
-    )
-  end
-
-  defp ktriangle(freq) do
-    step = 4 * freq * Granulix.period_size() / Granulix.rate()
-
-    Stream.unfold(
-      0,
-      fn acc ->
-        val =
-          cond do
-            acc < 2.0 -> acc - 1.0
-            true -> 3.0 - acc
-          end
-
-        next1 = acc + step
-
-        next2 =
-          cond do
-            next1 > 4.0 -> next1 - 4.0
-            true -> next1
-          end
-
-        {val, next2}
-      end
-    )
   end
 
   defp senvelope(enum, duration) do
