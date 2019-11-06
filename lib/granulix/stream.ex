@@ -3,8 +3,12 @@ defmodule Granulix.Stream do
   Granulix.Stream - functions for creating and handling streams of binaries.
   """
 
+  @typedoc "A stream of 32-bit floats"
+  @type frames_stream() :: Enumerable.t()
+  @type t() :: Granulix.frames()
+
   @doc "Sends the stream to audio output. Returns the stream"
-  @spec out(Enumerable.t()) :: Enumerable.t()
+  @spec out(frames_stream()) :: frames_stream()
   def out(enum) do
     Elixir.Stream.transform(
       enum,

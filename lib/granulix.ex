@@ -6,7 +6,9 @@ defmodule Granulix do
   only be run under Linux.
   """
 
-  @type frames() :: binary()
+  # @type frames() :: binary()
+  @typedoc "Binary array of native-float-32"
+  @type frames() :: <<_::32>>
   @type channel_no() :: pos_integer()
   @type notify_flag() :: boolean()
   @type frames_tuple2() :: {frames(), channel_no()}

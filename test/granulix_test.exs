@@ -168,8 +168,8 @@ defmodule GranulixTest do
       spawn(fn ->
         stream =
           sfullkickdrum(rate, period_size)
-          |> Util.Stream.pan(pos)
           |> Util.Stream.dur(1.0, rate)
+          |> Util.Stream.pan(pos)
           |> Granulix.Stream.out()
 
         timeout = PlayTime.timeout(nexttime)
