@@ -10,6 +10,7 @@ defmodule GranulixTest do
   alias Granulix.Generator.Noise
   alias Granulix.Plugin.AnalogEcho
   alias Granulix.Filter.Biquad
+  alias Granulix.Envelope
 
   setup do
     ctx = Granulix.Ctx.new()
@@ -217,7 +218,7 @@ defmodule GranulixTest do
     fm = Lfo.sin(context[:ctx], 4) |> Stream.map(&(&1 * 10 + 320))
 
     Granulix.Stream.new(%{Osc.triangle(rate) | frequency: fm})
-    |> senvelope(2.0)
+    |> Envelope.sin_tuple(rate, 2.0)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
     |> Granulix.Stream.new(AnalogEcho.init(rate, 0.3))
     |> Stream.zip(Lfo.sin(context[:ctx], 1.5))
@@ -271,7 +272,7 @@ defmodule GranulixTest do
       # You can have a stream as modulating frequency input for osc
       Granulix.Stream.new(%{Osc.sin(rate) | frequency: fm})
       |> Granulix.Stream.new(Granulix.Filter.Moog.new(0.1, 3.2))
-      # |> slmenvelope(1.0)
+      # |> Envelope.saw(rate, 1.0)
       # |> Stream.map(fn x -> Ma.mul(x, 0.3) end)
       # |> Granulix.Stream.new(%{AnalogEcho.init(rate, 0.25) | fb: 0.7, coeff: 0.8})
       |> Stream.zip(panmove) |> Stream.map(fn {x, y} -> Util.pan(x, y) end)
@@ -317,12 +318,12 @@ defmodule GranulixTest do
 
     suboutput =
       Granulix.Stream.new(Osc.sin(rate, freq))
-      |> slmenvelope(1.0)
+      |> Envelope.saw(rate, 1.0)
 
     clickoutput =
       Granulix.Stream.new(Noise.white())
       |> Granulix.Stream.new(Biquad.lowpass(rate, 1500))
-      |> slmenvelope(0.02)
+      |> Envelope.saw(rate, 0.02)
 
     Stream.zip(suboutput, clickoutput)
     |> Stream.map(fn {s, c} -> Ma.mul(Ma.add(s, c), 0.4) end)
@@ -335,7 +336,7 @@ defmodule GranulixTest do
     Granulix.Stream.new(Noise.white())
     |> Granulix.Stream.new(Biquad.lowpass(rate, 6000, 1.2))
     |> Granulix.Stream.new(Biquad.highpass(rate, 2000, 1.2))
-    |> slmenvelope(dur)
+    |> Envelope.saw(rate, dur)
     |> Util.Stream.pan(0.5)
     |> Util.Stream.dur(0.5, rate)
     |> Granulix.Stream.out()
@@ -415,43 +416,6 @@ defmodule GranulixTest do
     end)
 
     frames
-  end
-
-  defp senvelope(enum, duration) do
-    no_of_frames = round(duration * Granulix.rate())
-    twopi_by_nof = :math.pi() * 2 / no_of_frames
-
-    Stream.transform(enum, 0, fn frames, progress ->
-      if progress < no_of_frames do
-        x = :math.cos(progress * twopi_by_nof) * -0.5 + 0.5
-        {[{frames, x}], progress + byte_size(frames) / 4}
-      else
-        {[{frames, 0.0}], progress}
-      end
-    end)
-  end
-
-  defp slenvelope(enum, duration) do
-    no_of_frames = round(duration * Granulix.rate())
-
-    Stream.transform(enum, 0, fn frames, progress ->
-      if progress < no_of_frames do
-        x = 1.0 - progress / no_of_frames
-        {[{frames, x}], progress + byte_size(frames) / 4}
-      else
-        {[{frames, 0.0}], progress}
-      end
-    end)
-  end
-
-  defp smenvelope(enum, duration) do
-    senvelope(enum, duration)
-    |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
-  end
-
-  defp slmenvelope(enum, duration) do
-    slenvelope(enum, duration)
-    |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
   end
 
   defp freq(tone), do: freq(tone, 4)

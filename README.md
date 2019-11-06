@@ -8,9 +8,11 @@ Granulix makes use of the [Xalsa](https://github.com/karlsson/xalsa) application
 The Granulix.Math module holds a helper function to convert from an Elixir list of floats.
 Normally one do not need to create the binary arrays oneself, but instead use some of the Granulix.Generator.* modules.
 
+*Xalsa only runs under Linux.*
+
 Many modules like the Biquad and Moog filters have used the [Synthex](https://github.com/bitgamma/synthex) application as input and been converted to use NIFs.
 
-Granulix uses NIFs for generating and transforming ẗhe frames in a similar way as Supercollider (SC) uses UGens. The [granulix_analog_echo](https://github.com/karlsson/granulix_analog_echo) plugin application is translated from the SC [AnalogEcho](https://github.com/supercollider/example-plugins/blob/master/03-AnalogEcho/AnalogEcho.cpp) example as a comparison. The plugin is pulled in in Granulix as a dependency.
+Granulix uses NIFs for generating and transforming the frames in a similar way as Supercollider (SC) uses UGens. The [granulix_analog_echo](https://github.com/karlsson/granulix_analog_echo) plugin application is translated from the SC [AnalogEcho](https://github.com/supercollider/example-plugins/blob/master/03-AnalogEcho/AnalogEcho.cpp) example as a comparison. The plugin is pulled in in Granulix as a dependency.
 
 NIF resources are created to keep state in the C-code between subsequent calls for frames generation or transformation (filtering etc.). A reference to the resource is passed to the Elixir side for this.
 
@@ -24,6 +26,7 @@ Also, the maximum absolute value that the sound driver accepts before clipping i
 - git clone https://github.com/karlsson/granulix.git
 - mix deps.get
 - mix compile. In order to compile the dependency application xalsa's c code you will need some alsa development libraries to be installed (libasound2-dev).
+- mix docs. Documentation to get around.
 
 ## Configuration
 
