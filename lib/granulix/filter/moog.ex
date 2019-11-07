@@ -19,7 +19,7 @@ defmodule Granulix.Filter.Moog do
 
   @doc false
   def load_nifs do
-    :erlang.load_nif('./priv/granulix_moog', 0)
+    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_moog', 0)
   end
 
   @doc false

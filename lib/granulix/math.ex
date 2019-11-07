@@ -42,7 +42,7 @@ defmodule Granulix.Math do
 
   # -----------------------------------------------------------
   def load_nifs do
-    :erlang.load_nif('./priv/granulix_math', 0)
+    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_math', 0)
   end
 
   @spec mulnif(binary(), binary() | float()) :: binary()

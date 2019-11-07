@@ -9,7 +9,7 @@ defmodule GranulixTest do
   alias Granulix.Generator.Oscillator, as: Osc
   alias Granulix.Generator.Noise
   alias Granulix.Plugin.AnalogEcho
-  alias Granulix.Filter.Biquad
+  alias Granulix.Filter.{Biquad,Bitcrusher}
   alias Granulix.Envelope
 
   setup do
@@ -285,6 +285,45 @@ defmodule GranulixTest do
     a |> Util.Stream.dur(1.4, rate) |> Stream.run()
     log_max_gauges()
   end
+
+  test "Bitcrusher", context do
+    rate = context[:ctx].rate
+    Granulix.Stream.new(Osc.sin(rate, 440))
+    |> Granulix.Stream.new(Bitcrusher.new(4, 0.5))
+    |> Util.Stream.dur(1.5, rate) |> Util.Stream.pan(0.5)
+    |> Granulix.Stream.out()
+    |> Stream.run()
+
+    bc = Bitcrusher.new(4, 0.7)
+    Granulix.Stream.new(Osc.sin(rate, 440))
+    # Let the bitcrusher bits go from 8 to 1 during 6 seconds
+    |> Envelope.saw_tuple(rate, 6.0)
+    |> Stream.map(fn {enum, envelope} ->
+      Granulix.Transformer.next(%{bc | bits: (1 + envelope*7)}, enum)
+      end)
+    |> Util.Stream.dur(7.0, rate) |> Util.Stream.pan(0.5)
+    |> Granulix.Stream.out()
+    |> Stream.run()
+  end
+
+  # test "Multicard", context do
+  #   rate = context[:ctx].rate
+  #   panning = fn(c1, c2, c3, c4) ->
+  #     Granulix.Stream.new(Osc.sin(rate, 440))
+  #     |> Util.Stream.dur(3.0, rate)
+  #     |> Stream.map(fn x -> pan4(x, {c1, c2, c3, c4}) end)
+  #     |> Granulix.Stream.out()
+  #     |> Stream.run()
+  #   end
+  #   panning.(1.0, 0.0, 0.0, 0.0)
+  #   panning.(0.0, 1.0, 0.0, 0.0)
+  #   panning.(0.0, 0.0, 1.0, 0.0)
+  #   panning.(0.0, 0.0, 0.0, 1.0)
+  # end
+
+  # defp pan4(bin, {c1, c2, c3, c4}) do
+  #   [Ma.mul(bin, c1), Ma.mul(bin, c2), Ma.mul(bin, c3), Ma.mul(bin, c4)]
+  # end
 
   defp synth(dur, freq, pos, vol) do
     no_frames = tot_frames(dur)

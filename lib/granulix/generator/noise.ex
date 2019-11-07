@@ -7,7 +7,7 @@ defmodule Granulix.Generator.Noise do
   @on_load :load_nifs
 
   def load_nifs do
-    :erlang.load_nif('./priv/granulix_noise', 0)
+    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_noise', 0)
   end
 
   def noise_ctor(_type) do

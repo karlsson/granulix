@@ -14,7 +14,7 @@ defmodule Granulix.Generator.Oscillator do
 
   @doc false
   def load_nifs do
-    :erlang.load_nif('./priv/granulix_osc', 0)
+    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_osc', 0)
   end
 
   @doc false
