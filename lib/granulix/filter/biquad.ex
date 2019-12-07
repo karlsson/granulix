@@ -14,7 +14,12 @@ defmodule Granulix.Filter.Biquad do
 
   @doc false
   def load_nifs do
-    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_biquad', 0)
+    case :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_biquad', 0) do
+      :ok -> :ok
+      {:error, {:reload, _}} -> :ok
+      {:error, reason} ->
+        :logger.warning('Failed to load granulix_biquad NIF: ~p',[reason])
+    end
   end
 
   @doc false

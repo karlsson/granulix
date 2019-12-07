@@ -7,7 +7,12 @@ defmodule Granulix.Generator.Noise do
   @on_load :load_nifs
 
   def load_nifs do
-    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_noise', 0)
+    case :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_noise', 0) do
+      :ok -> :ok
+      {:error, {:reload, _}} -> :ok
+      {:error, reason} ->
+            :logger.warning('Failed to load granulix_noise NIF: ~p',[reason])
+    end
   end
 
   def noise_ctor(_type) do

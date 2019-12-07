@@ -1,6 +1,8 @@
 #include <erl_nif.h>
-#include <immintrin.h>
 #include <math.h>
+#ifdef __AVX__
+#include <immintrin.h>
+#endif
 
 #define FRAME_TYPE float
 #define FRAME_SIZE sizeof(FRAME_TYPE)
@@ -49,31 +51,8 @@ static ERL_NIF_TERM cross(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
   unsigned int size = xbin.size / FRAME_SIZE;
   x = (FRAME_TYPE *) xbin.data;
   y = (FRAME_TYPE *) ybin.data;
-  for( unsigned int i = 0; i < size; i++){
-    *z++ = *x++ * *y++;
-  }
-  return zterm;
-}
-
+#ifdef __AVX__
 #define AVXSTEP  sizeof(__m256) / FRAME_SIZE // 8
-// AVX / SIMD doesn't seem to boost performance.
-// Maybe it will offload the CPU a bit?
-static ERL_NIF_TERM simdcross(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]){
-  ErlNifBinary xbin, ybin;
-  ERL_NIF_TERM zterm;
-  FRAME_TYPE *x, *y, *z;
-
-  if(!(enif_inspect_binary(env, argv[0], &xbin) &&
-       enif_inspect_binary(env, argv[1], &ybin) &&
-       xbin.size == ybin.size)) {
-      return enif_make_badarg(env);
-  }
-
-  z = (FRAME_TYPE *) enif_make_new_binary(env, xbin.size, &zterm);
-  unsigned int size = xbin.size / FRAME_SIZE;
-  x = (FRAME_TYPE *) xbin.data;
-  y = (FRAME_TYPE *) ybin.data;
-
   __m256 mx, my, mz;
 
   for( unsigned int i = 0; i < size; i += AVXSTEP){
@@ -83,6 +62,11 @@ static ERL_NIF_TERM simdcross(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     _mm256_storeu_ps(z, mz);
     x += AVXSTEP; y += AVXSTEP; z += AVXSTEP;
   }
+#else
+  for( unsigned int i = 0; i < size; i++){
+    *z++ = *x++ * *y++;
+  }
+#endif
   return zterm;
 }
 
@@ -197,7 +181,6 @@ static ERL_NIF_TERM binary_to_float_list(ErlNifEnv* env, int argc, const ERL_NIF
 static ErlNifFunc nif_funcs[] = {
   {"mulnif", 2, mul},
   {"crossnif", 2, cross},
-  {"simdcross", 2, simdcross},
   {"addnif", 2, add},
   {"subtractnif", 2, subtract},
   {"float_list_to_binary", 1, float_list_to_binary},

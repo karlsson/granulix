@@ -1,23 +1,12 @@
-defmodule Mix.Tasks.Compile.GranulixNif do
-  def run(_args) do
-    {result, _errcode} = System.cmd("make", [], cd: "c_src", stderr_to_stdout: true)
-    Mix.Project.build_structure()
-    IO.binwrite(result)
-  end
-
-  def clean() do
-    {result, _errcode} = System.cmd("make", ["clean"], cd: "c_src", stderr_to_stdout: true)
-    IO.binwrite(result)
-  end
-end
-
 defmodule Granulix.MixProject do
   use Mix.Project
 
   def project do
     [
       app: :granulix,
-      compilers: [:granulix_nif | Mix.compilers()],
+      make_cwd: "c_src",
+      make_clean: ["clean"],
+      compilers: [:elixir_make] ++ Mix.compilers(),
       version: "0.1.0",
       elixir: "~> 1.9",
       start_permanent: Mix.env() == :prod,
@@ -48,11 +37,26 @@ defmodule Granulix.MixProject do
   defp deps do
     [
       {:ex_doc, "~> 0.20.2", only: :dev, runtime: false},
-      {:xalsa, "~> 0.2.0"},
+      {:elixir_make, "~> 0.6", runtime: false},
+      # {:xalsa, "~> 0.2.0"},
       {:granulix_protocol,
-       git: "https://github.com/karlsson/granulix_protocol.git"},
+       git: "https://github.com/karlsson/granulix_protocol.git"}
+    ]
+    ++ deps(:git)
+  end
+
+  defp deps(:git) do
+    [
+      {:xalsa,
+       git: "https://github.com/karlsson/xalsa.git"},
       {:granulix_analog_echo,
        git: "https://github.com/karlsson/granulix_analog_echo.git"}
+    ]
+  end
+  defp deps(:path) do
+    [
+      {:xalsa, path: "../xalsa"},
+      {:granulix_analog_echo, path: "../granulix_analog_echo"}
     ]
   end
 

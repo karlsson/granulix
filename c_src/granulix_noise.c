@@ -25,7 +25,7 @@ typedef struct
 } Noise;
 
 
-inline float frand() {
+static inline float frand() {
   float x = (float) rand()/RAND_MAX;
   return 2.f * x - 1.f;
 }
@@ -82,7 +82,7 @@ static ERL_NIF_TERM noise_next(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
   b0 = unit->b0; b1 = unit->b1; b2 = unit->b2; b3 = unit->b3;
   b4 = unit->b4; b5 = unit->b5; b6 = unit->b6;
 
-  for (int i = 0; i < no_of_frames; i++) {
+  for (unsigned int i = 0; i < no_of_frames; i++) {
     white = frand();
     switch(unit->type) {
     case WHITE:

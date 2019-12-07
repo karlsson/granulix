@@ -1,4 +1,6 @@
 defmodule Granulix.Math do
+
+  @compile {:autoload, false}
   @on_load :load_nifs
 
   @pi :math.pi()
@@ -42,7 +44,12 @@ defmodule Granulix.Math do
 
   # -----------------------------------------------------------
   def load_nifs do
-    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_math', 0)
+    case :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_math', 0) do
+      :ok -> :ok
+      {:error, {:reload, _}} -> :ok
+      {:error, reason} ->
+        :logger.warning('Failed to load granulix_math nif: ~p', [reason])
+    end
   end
 
   @spec mulnif(binary(), binary() | float()) :: binary()
@@ -54,12 +61,6 @@ defmodule Granulix.Math do
   @spec crossnif(binary(), binary()) :: binary()
   defp crossnif(_x, _y) do
     raise "NIF cross/2 not loaded"
-  end
-
-  @doc "Multiply 2 binary arrays of 32 bit floats"
-  @spec simdcross(binary(), binary()) :: binary()
-  def simdcross(_x, _y) do
-    raise "NIF simdcross/2 not loaded"
   end
 
   @spec addnif(binary(), binary()) :: binary()

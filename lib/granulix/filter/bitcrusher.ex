@@ -1,6 +1,6 @@
 defmodule Granulix.Filter.Bitcrusher do
   alias __MODULE__
-  
+
   @moduledoc """
   Quantizer / Decimator with smooth control.
 
@@ -19,7 +19,12 @@ defmodule Granulix.Filter.Bitcrusher do
 
   @doc false
   def load_nifs do
-    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_bitcrusher', 0)
+    case :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_bitcrusher', 0) do
+      :ok -> :ok
+      {:error, {:reload, _}} -> :ok
+      {:error, reason} ->
+        :logger.warning('Failed to load granulix_bitcrusher NIF: ~p',[reason])
+    end
   end
 
   @doc false
@@ -49,7 +54,7 @@ end
 
 # -----------------------------------------------------------
 defimpl Granulix.Transformer, for: Granulix.Filter.Bitcrusher do
-@moduledoc "Testing"
+  @moduledoc "Transformer protocol implementation for Bitcrusher filter"
   def next(%Granulix.Filter.Bitcrusher{ref: ref, bits: bits, normalized_frequency: nf}, frames) do
     Granulix.Filter.Bitcrusher.bitcrusher_next(ref, frames, bits, nf)
   end

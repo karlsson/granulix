@@ -19,7 +19,12 @@ defmodule Granulix.Filter.Moog do
 
   @doc false
   def load_nifs do
-    :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_moog', 0)
+    case :erlang.load_nif(:code.priv_dir(:granulix) ++ '/granulix_moog', 0) do
+      :ok -> :ok
+      {:error, {:reload, _}} -> :ok
+      {:error, reason} ->
+        :logger.warning('Failed to load granulix_moog NIF: ~p',[reason])
+    end
   end
 
   @doc false
@@ -45,7 +50,7 @@ end
 
 # -----------------------------------------------------------
 defimpl Granulix.Transformer, for: Granulix.Filter.Moog do
-@moduledoc "Testing"
+@moduledoc "Transformer protocol implementation for Moog Filter"
   def next(%Granulix.Filter.Moog{ref: ref, cutoff: cf, resonance: r}, frames) do
     Granulix.Filter.Moog.moog_next(ref, frames, cf, r)
   end
