@@ -215,15 +215,16 @@ defmodule GranulixTest do
 
   test "stream test triangle", context do
     rate = context[:ctx].rate
+    period_size = context[:ctx].period_size
     fm = Lfo.sin(context[:ctx], 4) |> Stream.map(&(&1 * 10 + 320))
 
     Granulix.Stream.new(%{Osc.triangle(rate) | frequency: fm})
     |> Envelope.sin_tuple(rate, 2.0)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
-    |> Granulix.Stream.new(AnalogEcho.init(rate, 0.3))
+    |> Util.Stream.dur(2.0, rate)
+    |> Granulix.Stream.new(AnalogEcho.init(rate, period_size, 0.3))
     |> Stream.zip(Lfo.sin(context[:ctx], 1.5))
     |> Stream.map(fn {frames, panning} -> Granulix.Util.pan(frames, panning) end)
-    |> Util.Stream.dur(5.0, rate)
     |> Granulix.Stream.out()
     |> Stream.run()
 
@@ -274,7 +275,7 @@ defmodule GranulixTest do
       |> Granulix.Stream.new(Granulix.Filter.Moog.new(0.1, 3.2))
       # |> Envelope.saw(rate, 1.0)
       # |> Stream.map(fn x -> Ma.mul(x, 0.3) end)
-      # |> Granulix.Stream.new(%{AnalogEcho.init(rate, 0.25) | fb: 0.7, coeff: 0.8})
+      # |> Granulix.Stream.new(%{AnalogEcho.init(rate, context[:ctx].period_size, 0.25) | fb: 0.7, coeff: 0.8})
       |> Stream.zip(panmove) |> Stream.map(fn {x, y} -> Util.pan(x, y) end)
       |> Granulix.Stream.out()
     end
