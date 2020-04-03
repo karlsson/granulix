@@ -34,8 +34,10 @@ If Xalsa's default card configuration does not work for your sound card(s) you
 can add xalsa configuration to the config/config.exs in the granulix application. Par example:
 ```elixir
 config :xalsa,
-  rate: 44100,
-  pcms: ["plughw:HDMI,3": 2]
+    rate: 44100,
+    pcms: [{:"hw:PCH,0",
+            [channels: 2, period_size: 256, period_buffer_size_ratio: 2]},
+           {:"plughw:HDMI,3", [channels: 2]}]
 ```
 
 ## Running

@@ -6,13 +6,13 @@ defmodule Granulix.Envelope do
 
   Here is a simple example of use with own multiplier (envelope value * 0.4):
   ```elixir
-     ctx = Granulix.Ctx.new()
-     rate = ctx.rate
-     fm = Lfo.sin(ctx, 4) |> Stream.map(&(&1 * 10 + 320))
+  ctx = Granulix.Ctx.new()
+  rate = ctx.rate
+  fm = Lfo.sin(ctx, 4) |> Stream.map(&(&1 * 10 + 320))
 
-     Granulix.Stream.new(%{Oscillator.triangle(rate) | frequency: fm})
-     |> Envelope.sin_tuple(2.0)
-     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
+  Granulix.Stream.new(%{Oscillator.triangle(rate) | frequency: fm})
+  |> Envelope.sin_tuple(rate, 2.0)
+  |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
   ```
   Using the sin/3 instead and excluding the Stream.map/2 function is the
   same as just using mul * 1.0.
@@ -50,7 +50,8 @@ defmodule Granulix.Envelope do
         x = :math.cos(progress * twopi_by_nof) * -0.5 + 0.5
         {[{frames, x}], progress + byte_size(frames) / 4}
       else
-        {[{frames, 0.0}], progress}
+        # {[{frames, 0.0}], progress}
+        {:halt, progress}
       end
     end)
   end
@@ -66,7 +67,6 @@ defmodule Granulix.Envelope do
     saw_tuple(enum, rate, duration)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
   end
-
   @doc """
   Same as saw/3 function but do not touch the frames. Instead it returns
   the frames and the envelope value in a tuple.
@@ -75,16 +75,114 @@ defmodule Granulix.Envelope do
     rate :: pos_integer(),
     duration :: float()) :: envelope_tuple()
   def saw_tuple(enum, rate, duration) do
+    line_tuple(enum, rate, duration, 1.0, 0.0)
+  end
+
+  @spec line(enum :: fs(),
+    rate :: pos_integer(),
+    duration :: float(),
+    startv :: float(),
+    endv:: float()) :: fs()
+  def line(enum, rate, duration, startv, endv) do
+    line_tuple(enum, rate, duration, startv, endv)
+    |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
+  end
+
+  @spec line_tuple(enum :: fs(),
+    rate :: pos_integer(),
+    duration :: float(),
+    startv :: float(),
+    endv:: float()) :: envelope_tuple()
+  def line_tuple(enum, rate, duration, startv, endv) do
     no_of_frames = round(duration * rate)
 
     Stream.transform(enum, 0, fn frames, progress ->
       if progress < no_of_frames do
-        x = 1.0 - progress / no_of_frames
+        x = linev(startv, endv, progress, 0, no_of_frames)
         {[{frames, x}], progress + byte_size(frames) / 4}
       else
-        {[{frames, 0.0}], progress}
+        # {[{frames, 0.0}], progress}
+        {:halt, progress}
       end
     end)
+  end
+
+  defmodule ADSR do
+    alias __MODULE__
+    alias Granulix.Envelope, as: GE
+    defstruct [
+      attack: 0.0, attack_level: 1.0,
+      decay: 0.0, decay_level: nil,
+      sustain: 0.0, sustain_level: 1.0,
+      release: 1.0]
+
+    def new(enum, rate, adsr = %ADSR{}) do
+      tuple(enum, rate, adsr)
+      |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
+    end
+
+    def tuple(enum, rate, adsr0 = %ADSR{decay_level: dl, sustain_level: sl}) do
+      a = cond do
+        dl == nil -> %{adsr0 | decay_level: sl}
+        true -> adsr0
+      end
+
+      d_start = round(a.attack * rate)
+      s_start = round(a.decay * rate) + d_start
+      r_start = round(a.sustain * rate) + s_start
+      r_end = round(a.release * rate) + r_start
+
+      Stream.transform(enum, {0, sl}, fn frames, {progress0, level} ->
+        {progress, rl} = cond do
+          progress0 < r_start ->
+            # If one receives :note_off, move to release phase and start
+            # from current level
+            receive do
+              :note_off -> {r_start, level}
+            after
+              0 -> {progress0, a.sustain_level}
+            end
+          true ->
+            {progress0, level}
+        end
+
+        y0 = cond do
+          progress < d_start ->
+            GE.linev(0.0, a.attack_level, progress, 0, d_start)
+          progress < s_start ->
+            GE.linev(a.attack_level, a.decay_level, progress, d_start, s_start)
+          progress < r_start ->
+            GE.linev(a.decay_level, a.sustain_level, progress, s_start, r_start)
+          progress < r_end ->
+            GE.linev(rl, 0.0, progress, r_start, r_end)
+          true ->
+            0.0
+        end
+        y = min(y0, 1.0)
+
+        newlevel = cond do
+          progress < r_start -> y
+          true -> level
+        end
+
+        cond do
+          progress < r_end -> {[{frames, y}], {round(progress + byte_size(frames) / 4), newlevel}}
+          true -> {:halt, {progress, newlevel}}
+        end
+      end)
+    end
+
+  end
+
+  def empty_stream(enum) do
+    Stream.map(enum, fn frames -> Ma.mul(frames, 0.0) end)
+  end
+
+  def linev(_,endv,_,endx, endx) do
+    endv
+  end
+  def linev(startv, endv, x, startx, endx) do
+    startv + (endv - startv) * (x - startx) / (endx - startx)
   end
 
 end

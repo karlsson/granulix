@@ -11,8 +11,20 @@ defmodule GranulixTest do
   alias Granulix.Plugin.AnalogEcho
   alias Granulix.Filter.{Biquad,Bitcrusher}
   alias Granulix.Envelope
+  alias Granulix.Envelope.ADSR
 
+  @docp """
+  Setting up realtime scheduling policy SCHED_RR with
+  chrt needs setup of group audio and user added to this:
+  groupadd audio
+  usermod -a -G audio yourUserID
+
+  and in /etc/security/limits.d/audio.conf:
+  @audio   -  rtprio     95
+  @audio   -  memlock    unlimited
+  """
   setup do
+    # :os.cmd('chrt -arp 10 ' ++ :os.getpid()) # Realtime scheduling policy
     ctx = Granulix.Ctx.new()
     [ctx: ctx]
   end
@@ -130,8 +142,38 @@ defmodule GranulixTest do
       pos = Enum.random(0..100) / 100
 
       spawn(fn ->
+        :timer.sleep(x*2)
         synth(dur, freq, pos, vol)
         |> send_frames(next)
+      end)
+    end
+
+    :timer.sleep(8000)
+    log_max_gauges()
+  end
+
+  test "example 3 again dense random texture with streams", context do
+    :timer.sleep(200)
+    rate = context[:ctx].rate
+    dur = 0.2
+    vol = 0.1
+    time0 = PlayTime.wait(%MsTime{}, 0.5)
+
+    for x <- 1..500 do
+      freq = Enum.random(1000..7000)
+      next = PlayTime.wait(time0, x * dur * Enum.random(10..40) / 800)
+      # next = 0.005
+      pos = Enum.random(0..100) / 100
+
+      spawn(fn ->
+        timeout = PlayTime.timeout(next)
+        :timer.sleep(timeout)
+        Granulix.Stream.new(Osc.sin(rate, freq))
+        |> Envelope.saw_tuple(dur, rate)
+        |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * vol) end)
+        |> Util.Stream.pan(pos)
+        |> Granulix.Stream.out()
+        |> Stream.run()
       end)
     end
 
@@ -143,6 +185,7 @@ defmodule GranulixTest do
     time0 = PlayTime.wait(%MsTime{}, 0.5)
 
     for x <- 1..12 do
+      :timer.sleep(10)
       nexttime = PlayTime.wait(time0, x * 0.5)
       pos = 0.5
 
@@ -158,18 +201,17 @@ defmodule GranulixTest do
   end
 
   test "kickdrum with streams", context do
-    time0 = PlayTime.wait(%MsTime{}, 0.5)
     rate = context[:ctx].rate
     period_size = context[:ctx].period_size
     pos = 0.5
+    time0 = PlayTime.wait(%MsTime{}, 0.5)
 
     for x <- 1..12, y <- [0, 1, 3] do
+      :timer.sleep(5)
       nexttime = PlayTime.wait(time0, x * 0.75 + y * 0.125)
-
       spawn(fn ->
         stream =
           sfullkickdrum(rate, period_size)
-          |> Util.Stream.dur(1.0, rate)
           |> Util.Stream.pan(pos)
           |> Granulix.Stream.out()
 
@@ -260,8 +302,11 @@ defmodule GranulixTest do
 
   test "Hi Hat", context do
     rate = context[:ctx].rate
-    openhat(rate)
-    closehat(rate)
+    spawn(fn ->
+      openhat(rate)
+      closehat(rate)
+    end)
+    :timer.sleep(2)
     log_max_gauges()
   end
 
@@ -358,12 +403,12 @@ defmodule GranulixTest do
 
     suboutput =
       Granulix.Stream.new(Osc.sin(rate, freq))
-      |> Envelope.saw(rate, 1.0)
+      |> ADSR.new(rate, %ADSR{decay: 0.2, sustain: 1, sustain_level: 0.5, release: 1.0})
 
     clickoutput =
       Granulix.Stream.new(Noise.white())
       |> Granulix.Stream.new(Biquad.lowpass(rate, 1500))
-      |> Envelope.saw(rate, 0.02)
+      |> (fn enum -> Stream.concat(Envelope.saw(enum, rate, 0.02), Envelope.empty_stream(enum)) end).()
 
     Stream.zip(suboutput, clickoutput)
     |> Stream.map(fn {s, c} -> Ma.mul(Ma.add(s, c), 0.4) end)
