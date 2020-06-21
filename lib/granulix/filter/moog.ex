@@ -1,4 +1,5 @@
 defmodule Granulix.Filter.Moog do
+  @behaviour SC.Plugin
   @moduledoc """
   Emulates the Moog VCF.
 
@@ -46,19 +47,17 @@ defmodule Granulix.Filter.Moog do
     %Moog{ref: Moog.moog_ctor(), cutoff: cutoff, resonance: resonance}
   end
 
-end
 
-# -----------------------------------------------------------
-defimpl Granulix.Transformer, for: Granulix.Filter.Moog do
-@moduledoc "Transformer protocol implementation for Moog Filter"
-  def next(%Granulix.Filter.Moog{ref: ref, cutoff: cf, resonance: r}, frames) do
-    Granulix.Filter.Moog.moog_next(ref, frames, cf, r)
+  @impl SC.Plugin
+  def next(%Moog{ref: ref, cutoff: cf, resonance: r}, frames) do
+    Moog.moog_next(ref, frames, cf, r)
   end
 
-  def stream(%Granulix.Filter.Moog{ref: ref, cutoff: cf, resonance: r}, enum) do
+  @impl SC.Plugin
+  def stream(%Moog{ref: ref, cutoff: cf, resonance: r}, enum) do
     Stream.map(
       enum,
-      fn frames -> Granulix.Filter.Moog.moog_next(ref, frames, cf, r) end
+      fn frames -> Moog.moog_next(ref, frames, cf, r) end
     )
   end
 end

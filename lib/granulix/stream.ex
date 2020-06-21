@@ -37,17 +37,18 @@ defmodule Granulix.Stream do
     )
   end
 
+  def play(enum), do: out(enum) |> Elixir.Stream.run()
+
+
   @doc "Creates a generator stream with driver period buffer size."
-  @spec new(Granulix.Generator.t()) :: Enumerable.t()
+  @spec new(module()) :: Enumerable.t()
   def new(generator) do
-    # (generator.__struct__).stream(generator, Granulix.period_size())
-    Granulix.Generator.stream(generator, Granulix.period_size())
+    (generator.__struct__).stream(generator, Granulix.period_size())
   end
 
   @doc "Creates a transformer stream (filter, reverb etc) with given input stream."
-  @spec new(Enumerable.t(), Granulix.Transformer.t()) :: Enumerable.t()
+  @spec new(Enumerable.t(), module()) :: Enumerable.t()
   def new(enum, transformer) do
-    # (transformer.__struct__).stream(enum, transformer)
-    Granulix.Transformer.stream(transformer, enum)
+    (transformer.__struct__).stream(transformer, enum)
   end
 end

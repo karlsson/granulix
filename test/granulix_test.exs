@@ -2,17 +2,10 @@ defmodule GranulixTest do
   use ExUnit.Case
   # doctest Granulix
   alias Granulix.Math, as: Ma
-  alias Granulix.Util
   alias Granulix.Time.{MsTime, PlayTime}
-  alias Granulix.Generator
-  alias Granulix.Generator.Lfo
   alias Granulix.Generator.Oscillator, as: Osc
   alias Granulix.Generator.Noise
-  alias Granulix.Plugin.AnalogEcho
-  alias Granulix.Filter.{Biquad,Bitcrusher}
-  alias Granulix.Envelope
-  alias Granulix.Envelope.ADSR
-
+  alias SC.Plugin, as: ScP
   @docp """
   Setting up realtime scheduling policy SCHED_RR with
   chrt needs setup of group audio and user added to this:
@@ -24,7 +17,6 @@ defmodule GranulixTest do
   @audio   -  memlock    unlimited
   """
   setup do
-    # :os.cmd('chrt -arp 10 ' ++ :os.getpid()) # Realtime scheduling policy
     ctx = Granulix.Ctx.new()
     [ctx: ctx]
   end
@@ -152,35 +144,6 @@ defmodule GranulixTest do
     log_max_gauges()
   end
 
-  test "example 3 again dense random texture with streams", context do
-    :timer.sleep(200)
-    rate = context[:ctx].rate
-    dur = 0.2
-    vol = 0.1
-    time0 = PlayTime.wait(%MsTime{}, 0.5)
-
-    for x <- 1..500 do
-      freq = Enum.random(1000..7000)
-      next = PlayTime.wait(time0, x * dur * Enum.random(10..40) / 800)
-      # next = 0.005
-      pos = Enum.random(0..100) / 100
-
-      spawn(fn ->
-        timeout = PlayTime.timeout(next)
-        :timer.sleep(timeout)
-        Granulix.Stream.new(Osc.sin(rate, freq))
-        |> Envelope.saw_tuple(dur, rate)
-        |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * vol) end)
-        |> Util.Stream.pan(pos)
-        |> Granulix.Stream.out()
-        |> Stream.run()
-      end)
-    end
-
-    :timer.sleep(8000)
-    log_max_gauges()
-  end
-
   test "kickdrum" do
     time0 = PlayTime.wait(%MsTime{}, 0.5)
 
@@ -199,177 +162,6 @@ defmodule GranulixTest do
     :timer.sleep(8000)
     log_max_gauges()
   end
-
-  test "kickdrum with streams", context do
-    rate = context[:ctx].rate
-    period_size = context[:ctx].period_size
-    pos = 0.5
-    time0 = PlayTime.wait(%MsTime{}, 0.5)
-
-    for x <- 1..12, y <- [0, 1, 3] do
-      :timer.sleep(5)
-      nexttime = PlayTime.wait(time0, x * 0.75 + y * 0.125)
-      spawn(fn ->
-        stream =
-          sfullkickdrum(rate, period_size)
-          |> Util.Stream.pan(pos)
-          |> Granulix.Stream.out()
-
-        timeout = PlayTime.timeout(nexttime)
-        :timer.sleep(timeout)
-        Stream.run(stream)
-      end)
-    end
-
-    :timer.sleep(12000)
-    log_max_gauges()
-  end
-
-  test "stream test sinus", context do
-    rate = context[:ctx].rate
-    fm = Lfo.triangle(context[:ctx], 4) |> Stream.map(&(&1 * 20 + 440))
-    # You can have a stream as modulating frequency input for osc
-    Granulix.Stream.new(Osc.sin(rate, fm))
-    |> Util.Stream.pan(0.5)
-    |> Util.Stream.dur(5.0, rate)
-    |> Granulix.Stream.out()
-    |> Stream.run()
-
-    log_max_gauges()
-  end
-
-  test "stream test saw", context do
-    rate = context[:ctx].rate
-    osc = Osc.saw(rate)
-    no_of_frames = context[:ctx].period_size
-
-    Lfo.sin(context[:ctx], 4)
-    |> Stream.map(&(&1 * 20 + 220))
-    |> Stream.map(fn freq -> Generator.next(%{osc | frequency: freq}, no_of_frames) end)
-    |> Stream.map(fn frames -> Ma.mul(frames, 0.3) end)
-    |> Util.Stream.pan(0.5)
-    |> Util.Stream.dur(5, rate)
-    |> Granulix.Stream.out()
-    |> Stream.run()
-
-    log_max_gauges()
-  end
-
-  test "stream test triangle", context do
-    rate = context[:ctx].rate
-    period_size = context[:ctx].period_size
-    fm = Lfo.sin(context[:ctx], 4) |> Stream.map(&(&1 * 10 + 320))
-
-    Granulix.Stream.new(%{Osc.triangle(rate) | frequency: fm})
-    |> Envelope.sin_tuple(rate, 2.0)
-    |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
-    |> Util.Stream.dur(2.0, rate)
-    |> Granulix.Stream.new(AnalogEcho.init(rate, period_size, 0.3))
-    |> Stream.zip(Lfo.sin(context[:ctx], 1.5))
-    |> Stream.map(fn {frames, panning} -> Granulix.Util.pan(frames, panning) end)
-    |> Granulix.Stream.out()
-    |> Stream.run()
-
-    log_max_gauges()
-  end
-
-  test "stream test lowpass", context do
-    fm = Lfo.triangle(context[:ctx], 0.25) |> Stream.map(&(&1 * 200 + 320))
-    # You can have a stream as modulating frequency input for osc
-    Granulix.Stream.new(%{Osc.sin(context[:ctx].rate) | frequency: fm})
-    |> Granulix.Stream.new(Biquad.lowpass(context[:ctx].rate, 320, 10))
-    |> Util.Stream.pan(0.5)
-    |> Util.Stream.dur(5.0, context[:ctx].rate)
-    |> Granulix.Stream.out()
-    |> Stream.run()
-
-    log_max_gauges()
-  end
-
-  test "stream test highpass", context do
-    fm = Lfo.triangle(context[:ctx], 0.25) |> Stream.map(&(&1 * 200 + 320))
-    # You can have a stream as modulating frequency input for osc
-    Granulix.Stream.new(%{Osc.sin(context[:ctx].rate) | frequency: fm})
-    |> Stream.map(fn frames -> Ma.mul(frames, 0.4) end)
-    |> Granulix.Stream.new(Biquad.highpass(context[:ctx].rate, 320, 10))
-    |> Util.Stream.pan(0.5)
-    |> Util.Stream.dur(5.0, context[:ctx].rate)
-    |> Granulix.Stream.out()
-    |> Stream.run()
-
-    log_max_gauges()
-  end
-
-  test "Hi Hat", context do
-    rate = context[:ctx].rate
-    spawn(fn ->
-      openhat(rate)
-      closehat(rate)
-    end)
-    :timer.sleep(2)
-    log_max_gauges()
-  end
-
-  test "Moog test", context do
-    rate = context[:ctx].rate
-    streamf = fn(freq) ->
-      fm = Lfo.triangle(context[:ctx], 5.0) |> Stream.map(&(&1 * 5 + freq))
-      panmove = Lfo.triangle(context[:ctx], 1.0) |> Stream.map(&(&1*0.4 + 0.5 ))
-      # You can have a stream as modulating frequency input for osc
-      Granulix.Stream.new(%{Osc.sin(rate) | frequency: fm})
-      |> Granulix.Stream.new(Granulix.Filter.Moog.new(0.1, 3.2))
-      # |> Envelope.saw(rate, 1.0)
-      # |> Stream.map(fn x -> Ma.mul(x, 0.3) end)
-      # |> Granulix.Stream.new(%{AnalogEcho.init(rate, context[:ctx].period_size, 0.25) | fb: 0.7, coeff: 0.8})
-      |> Stream.zip(panmove) |> Stream.map(fn {x, y} -> Util.pan(x, y) end)
-      |> Granulix.Stream.out()
-    end
-    a = streamf.(freq(:A))
-    c = streamf.(freq(:C))
-    a |> Util.Stream.dur(1.4, rate) |> Stream.run()
-    c |> Util.Stream.dur(2.4, rate) |> Stream.run()
-    a |> Util.Stream.dur(1.4, rate) |> Stream.run()
-    log_max_gauges()
-  end
-
-  test "Bitcrusher", context do
-    rate = context[:ctx].rate
-    Granulix.Stream.new(Osc.sin(rate, 440))
-    |> Granulix.Stream.new(Bitcrusher.new(4, 0.5))
-    |> Util.Stream.dur(1.5, rate) |> Util.Stream.pan(0.5)
-    |> Granulix.Stream.out()
-    |> Stream.run()
-
-    bc = Bitcrusher.new(4, 0.7)
-    Granulix.Stream.new(Osc.sin(rate, 440))
-    # Let the bitcrusher bits go from 8 to 1 during 6 seconds
-    |> Envelope.saw_tuple(rate, 6.0)
-    |> Stream.map(fn {enum, envelope} ->
-      Granulix.Transformer.next(%{bc | bits: (1 + envelope*7)}, enum)
-      end)
-    |> Util.Stream.dur(7.0, rate) |> Util.Stream.pan(0.5)
-    |> Granulix.Stream.out()
-    |> Stream.run()
-  end
-
-  # test "Multicard", context do
-  #   rate = context[:ctx].rate
-  #   panning = fn(c1, c2, c3, c4) ->
-  #     Granulix.Stream.new(Osc.sin(rate, 440))
-  #     |> Util.Stream.dur(3.0, rate)
-  #     |> Stream.map(fn x -> pan4(x, {c1, c2, c3, c4}) end)
-  #     |> Granulix.Stream.out()
-  #     |> Stream.run()
-  #   end
-  #   panning.(1.0, 0.0, 0.0, 0.0)
-  #   panning.(0.0, 1.0, 0.0, 0.0)
-  #   panning.(0.0, 0.0, 1.0, 0.0)
-  #   panning.(0.0, 0.0, 0.0, 1.0)
-  # end
-
-  # defp pan4(bin, {c1, c2, c3, c4}) do
-  #   [Ma.mul(bin, c1), Ma.mul(bin, c2), Ma.mul(bin, c3), Ma.mul(bin, c4)]
-  # end
 
   defp synth(dur, freq, pos, vol) do
     no_frames = tot_frames(dur)
@@ -397,37 +189,6 @@ defmodule GranulixTest do
     Ma.add(suboutput, clickoutput)
   end
 
-  # use streams
-  defp sfullkickdrum(rate, _period_size) do
-    freq = :rand.uniform() * 4.0 + 98
-
-    suboutput =
-      Granulix.Stream.new(Osc.sin(rate, freq))
-      |> ADSR.new(rate, %ADSR{decay: 0.2, sustain: 1, sustain_level: 0.5, release: 1.0})
-
-    clickoutput =
-      Granulix.Stream.new(Noise.white())
-      |> Granulix.Stream.new(Biquad.lowpass(rate, 1500))
-      |> (fn enum -> Stream.concat(Envelope.saw(enum, rate, 0.02), Envelope.empty_stream(enum)) end).()
-
-    Stream.zip(suboutput, clickoutput)
-    |> Stream.map(fn {s, c} -> Ma.mul(Ma.add(s, c), 0.4) end)
-  end
-
-  defp openhat(rate), do: hihat(rate, 0.3)
-  defp closehat(rate), do: hihat(rate, 0.1)
-
-  defp hihat(rate, dur) do
-    Granulix.Stream.new(Noise.white())
-    |> Granulix.Stream.new(Biquad.lowpass(rate, 6000, 1.2))
-    |> Granulix.Stream.new(Biquad.highpass(rate, 2000, 1.2))
-    |> Envelope.saw(rate, dur)
-    |> Util.Stream.pan(0.5)
-    |> Util.Stream.dur(0.5, rate)
-    |> Granulix.Stream.out()
-    |> Stream.run()
-  end
-
   defp send_notes(frames, next) do
     time = %MsTime{}
     send_notes(frames, time, next)
@@ -447,7 +208,7 @@ defmodule GranulixTest do
   end
 
   defp generate_white(no_of_frames) do
-    Noise.next(Noise.white(), no_of_frames)
+    ScP.next(no_of_frames, Noise.white())
   end
 
   defp generate_sinus(freq, rate, no_of_frames) do

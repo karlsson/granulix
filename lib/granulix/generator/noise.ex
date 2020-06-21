@@ -1,5 +1,6 @@
 defmodule Granulix.Generator.Noise do
-  alias Granulix.Generator.Noise
+  alias __MODULE__
+  @behaviour SC.Plugin
 
   defstruct [:ref]
 
@@ -30,24 +31,15 @@ defmodule Granulix.Generator.Noise do
   def brown(), do: new(:brown)
   defp new(type), do: %Noise{ref: Noise.noise_ctor(type)}
 
+  @impl SC.Plugin
   def next(%Noise{ref: ref}, no_of_frames) do
     Noise.noise_next(ref, no_of_frames)
   end
 
+  @impl SC.Plugin
   def stream(%Noise{ref: ref}, no_of_frames) do
     Stream.repeatedly(fn ->
       Noise.noise_next(ref, no_of_frames)
     end)
-  end
-end
-
-# -----------------------------------------------------------
-defimpl Granulix.Generator, for: Granulix.Generator.Noise do
-  def next(noise, no_of_frames) do
-    Granulix.Generator.Noise.next(noise, no_of_frames)
-  end
-
-  def stream(noise, no_of_frames) do
-    Granulix.Generator.Noise.stream(noise, no_of_frames)
   end
 end

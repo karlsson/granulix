@@ -1,5 +1,6 @@
 defmodule Granulix.Generator.Oscillator do
   alias __MODULE__
+  @behaviour SC.Plugin
 
   defstruct [:frequency, :ref]
 
@@ -53,11 +54,13 @@ defmodule Granulix.Generator.Oscillator do
 
   @doc "Get next no of frames"
   @spec next(oscillator(), no_of_frames :: integer()) :: binary()
+  @impl SC.Plugin
   def next(%Oscillator{ref: ref, frequency: frequency}, no_of_frames) do
     osc_next(ref, 1.0 * frequency, no_of_frames)
   end
 
   @spec stream(oscillator(), no_of_frames :: integer()) :: Enumerable.binary()
+  @impl SC.Plugin
   def stream(osc = %Oscillator{frequency: freqin}, no_of_frames) do
     cond do
       is_number(freqin) ->
@@ -73,16 +76,5 @@ defmodule Granulix.Generator.Oscillator do
           end
         )
     end
-  end
-end
-
-# -----------------------------------------------------------
-defimpl Granulix.Generator, for: Granulix.Generator.Oscillator do
-  def next(osc, no_of_frames) do
-    Granulix.Generator.Oscillator.next(osc, no_of_frames)
-  end
-
-  def stream(osc, no_of_frames) do
-    Granulix.Generator.Oscillator.stream(osc, no_of_frames)
   end
 end

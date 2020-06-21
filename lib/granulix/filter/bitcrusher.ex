@@ -1,5 +1,6 @@
 defmodule Granulix.Filter.Bitcrusher do
   alias __MODULE__
+  @behaviour SC.Plugin
 
   @moduledoc """
   Quantizer / Decimator with smooth control.
@@ -38,7 +39,7 @@ defmodule Granulix.Filter.Bitcrusher do
   end
 
   # -----------------------------------------------------------
-  @spec new(bits :: integer(), normalized_frequency :: float()) :: %Granulix.Filter.Bitcrusher{}
+  @spec new(bits :: integer(), normalized_frequency :: float()) :: %Bitcrusher{}
   def new(bits, normalized_frequency) when is_integer(bits) do
     new(bits * 1.0, normalized_frequency)
   end
@@ -50,19 +51,16 @@ defmodule Granulix.Filter.Bitcrusher do
                 normalized_frequency: normalized_frequency}
   end
 
-end
-
-# -----------------------------------------------------------
-defimpl Granulix.Transformer, for: Granulix.Filter.Bitcrusher do
-  @moduledoc "Transformer protocol implementation for Bitcrusher filter"
-  def next(%Granulix.Filter.Bitcrusher{ref: ref, bits: bits, normalized_frequency: nf}, frames) do
-    Granulix.Filter.Bitcrusher.bitcrusher_next(ref, frames, bits, nf)
+  @impl SC.Plugin
+  def next(%Bitcrusher{ref: ref, bits: bits, normalized_frequency: nf}, frames) do
+    Bitcrusher.bitcrusher_next(ref, frames, bits, nf)
   end
 
-  def stream(%Granulix.Filter.Bitcrusher{ref: ref, bits: bits, normalized_frequency: nf}, enum) do
+  @impl SC.Plugin
+  def stream(bitcrusher = %Bitcrusher{}, enum) do
     Stream.map(
       enum,
-      fn frames -> Granulix.Filter.Bitcrusher.bitcrusher_next(ref, frames, bits, nf) end
+      fn frames -> next(bitcrusher, frames) end
     )
   end
 end

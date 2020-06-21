@@ -36,27 +36,26 @@ defmodule Granulix.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.20.2", only: :dev, runtime: false},
-      {:elixir_make, "~> 0.6", runtime: false},
-      # {:xalsa, "~> 0.2.0"},
-      {:granulix_protocol,
-       git: "https://github.com/karlsson/granulix_protocol.git"}
+      {:ex_doc, "~> 0.22", only: :dev, runtime: false},
+      {:elixir_make, "~> 0.6", runtime: false}
     ]
-    ++ deps(:git)
+    ++ deps(:hex)
   end
 
+  defp deps(:hex) do
+    [
+      {:xalsa, "~> 0.3.0"}
+    ]
+  end
   defp deps(:git) do
     [
       {:xalsa,
-       git: "https://github.com/karlsson/xalsa.git"},
-      {:granulix_analog_echo,
-       git: "https://github.com/karlsson/granulix_analog_echo.git"}
+       git: "https://github.com/karlsson/xalsa.git"}
     ]
   end
   defp deps(:path) do
     [
-      {:xalsa, path: "../xalsa"},
-      {:granulix_analog_echo, path: "../granulix_analog_echo"}
+      {:xalsa, path: "../xalsa"}
     ]
   end
 

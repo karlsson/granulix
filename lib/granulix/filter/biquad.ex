@@ -1,4 +1,5 @@
 defmodule Granulix.Filter.Biquad do
+  @behaviour SC.Plugin
   # Code from - Synthex.Filter.Biquad:
   #  https://github.com/bitgamma/synthex/blob/master/lib/synthex/filter/biquad.ex
   #  transposed to use Erlang NIF library.
@@ -187,26 +188,18 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def stream(enum, %Biquad{ref: ref, coefficients: cf}) do
+  @impl SC.Plugin
+  def next(%Biquad{ref: ref, coefficients: cf}, frames) do
+    Biquad.biquad_next(ref, frames, cf)
+  end
+
+  @impl SC.Plugin
+  def stream(%Biquad{ref: ref, coefficients: cf}, enum) do
     Stream.map(
       enum,
       fn frames ->
         Biquad.biquad_next(ref, frames, cf)
       end
-    )
-  end
-end
-
-# -----------------------------------------------------------
-defimpl Granulix.Transformer, for: Granulix.Filter.Biquad do
-  def next(%Granulix.Filter.Biquad{ref: ref, coefficients: cf}, frames) do
-    Granulix.Filter.Biquad.biquad_next(ref, frames, cf)
-  end
-
-  def stream(%Granulix.Filter.Biquad{ref: ref, coefficients: cf}, enum) do
-    Stream.map(
-      enum,
-      fn frames -> Granulix.Filter.Biquad.biquad_next(ref, frames, cf) end
     )
   end
 end
