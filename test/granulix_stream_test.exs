@@ -7,11 +7,11 @@ defmodule GranulixStreamTest do
   alias Granulix.Generator.Lfo
   alias Granulix.Generator.Oscillator, as: Osc
   alias Granulix.Generator.Noise
-  alias Granulix.Plugin.AnalogEcho
   alias Granulix.Filter.{Biquad,Bitcrusher}
   alias Granulix.Envelope
   alias Granulix.Envelope.ADSR
   alias SC.Plugin, as: ScP
+  alias SC.Reverb.AnalogEcho
 
   @docp """
   Setting up realtime scheduling policy SCHED_RR with
@@ -46,7 +46,8 @@ defmodule GranulixStreamTest do
       spawn(fn ->
         timeout = PlayTime.timeout(next)
         :timer.sleep(timeout)
-        ScP.stream(Osc.sin(rate, freq))
+        context[:ctx].period_size
+        |> ScP.stream(Osc.sin(rate, freq))
         |> Envelope.saw_tuple(dur, rate)
         |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * vol) end)
         |> Util.Stream.pan(pos)
@@ -87,7 +88,8 @@ defmodule GranulixStreamTest do
     rate = context[:ctx].rate
     fm = Lfo.triangle(context[:ctx], 4) |> Stream.map(&(&1 * 20 + 440))
     # You can have a stream as modulating frequency input for osc
-    ScP.stream(Osc.sin(rate, fm))
+    context[:ctx].period_size
+    |> ScP.stream(Osc.sin(rate, fm))
     |> Util.Stream.pan(0.5)
     |> Util.Stream.dur(5.0, rate)
     |> Granulix.Stream.play()
@@ -118,11 +120,12 @@ defmodule GranulixStreamTest do
     period_size = context[:ctx].period_size
     fm = Lfo.sin(context[:ctx], 4) |> Stream.map(&(&1 * 10 + 320))
 
-    ScP.stream(%{Osc.triangle(rate) | frequency: fm})
+    period_size
+    |> ScP.stream(%{Osc.triangle(rate) | frequency: fm})
     |> Envelope.sin_tuple(rate, 2.0)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
     |> Util.Stream.dur(2.0, rate)
-    |> ScP.stream(AnalogEcho.init(rate, period_size, 0.3))
+    |> ScP.stream(AnalogEcho.new(rate, period_size, 0.3))
     |> Stream.zip(Lfo.sin(context[:ctx], 1.5))
     |> Stream.map(fn {frames, panning} -> Granulix.Util.pan(frames, panning) end)
     |> Granulix.Stream.play()
@@ -133,7 +136,8 @@ defmodule GranulixStreamTest do
   test "stream test lowpass", context do
     fm = Lfo.triangle(context[:ctx], 0.25) |> Stream.map(&(&1 * 200 + 320))
     # You can have a stream as modulating frequency input for osc
-    ScP.stream(%{Osc.sin(context[:ctx].rate) | frequency: fm})
+    context[:ctx].period_size
+    |> ScP.stream(%{Osc.sin(context[:ctx].rate) | frequency: fm})
     |> ScP.stream(Biquad.lowpass(context[:ctx].rate, 320, 10))
     |> Util.Stream.pan(0.5)
     |> Util.Stream.dur(5.0, context[:ctx].rate)
@@ -145,7 +149,8 @@ defmodule GranulixStreamTest do
   test "stream test highpass", context do
     fm = Lfo.triangle(context[:ctx], 0.25) |> Stream.map(&(&1 * 200 + 320))
     # You can have a stream as modulating frequency input for osc
-    ScP.stream(%{Osc.sin(context[:ctx].rate) | frequency: fm})
+    context[:ctx].period_size
+    |> ScP.stream(%{Osc.sin(context[:ctx].rate) | frequency: fm})
     |> Stream.map(fn frames -> Ma.mul(frames, 0.4) end)
     |> ScP.stream(Biquad.highpass(context[:ctx].rate, 320, 10))
     |> Util.Stream.pan(0.5)
@@ -157,9 +162,10 @@ defmodule GranulixStreamTest do
 
   test "Hi Hat", context do
     rate = context[:ctx].rate
+    period_size = context[:ctx].period_size
     spawn(fn ->
-      openhat(rate)
-      closehat(rate)
+      openhat(rate, period_size)
+      closehat(rate, period_size)
     end)
     :timer.sleep(2)
     log_max_gauges()
@@ -171,7 +177,8 @@ defmodule GranulixStreamTest do
       fm = Lfo.triangle(context[:ctx], 5.0) |> Stream.map(&(&1 * 5 + freq))
       panmove = Lfo.triangle(context[:ctx], 1.0) |> Stream.map(&(&1*0.4 + 0.5 ))
       # You can have a stream as modulating frequency input for osc
-      ScP.stream(%{Osc.sin(rate) | frequency: fm})
+      context[:ctx].period_size
+      |> ScP.stream(%{Osc.sin(rate) | frequency: fm})
       |> ScP.stream(Granulix.Filter.Moog.new(0.1, 3.2))
       # |> Envelope.saw(rate, 1.0)
       # |> Stream.map(fn x -> Ma.mul(x, 0.3) end)
@@ -189,13 +196,15 @@ defmodule GranulixStreamTest do
 
   test "Bitcrusher", context do
     rate = context[:ctx].rate
-    ScP.stream(Osc.sin(rate, 440))
+    context[:ctx].period_size
+    |> ScP.stream(Osc.sin(rate, 440))
     |> ScP.stream(Bitcrusher.new(4, 0.5))
     |> Util.Stream.dur(1.5, rate) |> Util.Stream.pan(0.5)
     |> Granulix.Stream.play()
 
     bc = Bitcrusher.new(4, 0.7)
-    ScP.stream(Osc.sin(rate, 440))
+    context[:ctx].period_size
+    |> ScP.stream(Osc.sin(rate, 440))
     # Let the bitcrusher bits go from 8 to 1 during 6 seconds
     |> Envelope.saw_tuple(rate, 6.0)
     |> Stream.map(fn {enum, envelope} ->
@@ -208,7 +217,7 @@ defmodule GranulixStreamTest do
   # test "Multicard", context do
   #   rate = context[:ctx].rate
   #   panning = fn(c1, c2, c3, c4) ->
-  #     ScP.stream(Osc.sin(rate, 440))
+  #     context[:ctx].period_size |> ScP.stream(Osc.sin(rate, 440))
   #     |> Util.Stream.dur(3.0, rate)
   #     |> Stream.map(fn x -> pan4(x, {c1, c2, c3, c4}) end)
   #     |> Granulix.Stream.out()
@@ -226,15 +235,17 @@ defmodule GranulixStreamTest do
 
   # https://blog.rumblesan.com/post/53271713518/drum-sounds-in-supercollider-part-1
   # use streams
-  defp sfullkickdrum(rate, _period_size) do
+  defp sfullkickdrum(rate, period_size) do
     freq = :rand.uniform() * 4.0 + 98
 
     suboutput =
-      ScP.stream(Osc.sin(rate, freq))
+      period_size
+      |> ScP.stream(Osc.sin(rate, freq))
       |> ADSR.new(rate, %ADSR{decay: 0.2, sustain: 1, sustain_level: 0.5, release: 1.0})
 
     clickoutput =
-      ScP.stream(Noise.white())
+      period_size
+      |> ScP.stream(Noise.white())
       |> ScP.stream(Biquad.lowpass(rate, 1500))
       |> (fn enum -> Stream.concat(Envelope.saw(enum, rate, 0.02), Envelope.empty_stream(enum)) end).()
 
@@ -242,11 +253,12 @@ defmodule GranulixStreamTest do
     |> Stream.map(fn {s, c} -> Ma.mul(Ma.add(s, c), 0.4) end)
   end
 
-  defp openhat(rate), do: hihat(rate, 0.3)
-  defp closehat(rate), do: hihat(rate, 0.1)
+  defp openhat(rate, period_size), do: hihat(rate, period_size, 0.3)
+  defp closehat(rate, period_size), do: hihat(rate, period_size, 0.1)
 
-  defp hihat(rate, dur) do
-    ScP.stream(Noise.white())
+  defp hihat(rate, period_size, dur) do
+    period_size
+    |> ScP.stream(Noise.white())
     |> ScP.stream(Biquad.lowpass(rate, 6000, 1.2))
     |> ScP.stream(Biquad.highpass(rate, 2000, 1.2))
     |> Envelope.saw(rate, dur)
