@@ -13,7 +13,7 @@ defmodule Granulix.Generator.Lfo do
       alias Granulix.Generator.Oscillator
 
       ctx = Granulix.Ctx.new()
-      fm = Lfo.triangle(ctx, 4) |> Stream.map(&(&1 * 20 + 440))
+      fm = Lfo.triangle(ctx, 4) |> Lfo.nma(40, 420)
 
       # You can have a stream as modulating frequency input for osc
       sinosc = Granulix.Stream.new(Oscillator.sin(rate, fm))
@@ -21,7 +21,7 @@ defmodule Granulix.Generator.Lfo do
   You can also use the Stream module zip function to insert LFOs,
   here moving sound between left and right channel every second:
 
-      panmove = Lfo.triangle(ctx, 1.0) |> Stream.map(&(&1*0.4 + 0.5 ))
+      panmove = Lfo.triangle(ctx, 1.0) |> Lfo.nma(0.8, 0.1)
 
       sinosc
       |> Stream.zip(panmove)
@@ -93,5 +93,42 @@ defmodule Granulix.Generator.Lfo do
         {val, next2}
       end
     )
+  end
+
+  @spec square(ctx :: Granulix.Ctx.ctx(), frequency :: number(), duty :: float()) :: Enumerable.float()
+  def square(ctx, freq, duty \\ 0.5) do
+    step = freq * ctx.period_size / ctx.rate
+
+    Stream.unfold(
+      0,
+      fn acc ->
+        val =
+          cond do
+            acc < duty -> 1.0
+            true -> -1.0
+          end
+
+        next1 = acc + step
+
+        next2 =
+          cond do
+            next1 > 1.0 -> next1 - 1.0
+            true -> next1
+          end
+
+        {val, next2}
+      end
+    )
+  end
+
+  @doc """
+  Normalize, Multiply, Add
+
+  Move from -1, 1 range to 0, 1 and then multiply and add offset.
+  """
+  @spec nma(frames :: Enumerable.t, mul :: float, bottomlevel :: float) :: Enumerable.t
+  def nma(frames, mul, bottomlevel) do
+    x = 0.5 * mul
+    Stream.map(frames,(&(&1 * x + bottomlevel + x)))
   end
 end

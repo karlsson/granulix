@@ -64,13 +64,13 @@ static ERL_NIF_TERM ramp_ctor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
   if (!enif_get_double(env, argv[1], &level)){
     return enif_make_badarg(env);
   }
-  
+
   Ramp * unit = enif_alloc_resource(sc_filter_type, sizeof(Ramp));
   unit->rate = rate;
   unit->m_counter = 1;
   unit->m_level = level;
   unit->m_slope = 0.f;
-  
+
   ERL_NIF_TERM term = enif_make_resource(env, unit);
   enif_release_resource(unit);
   return term;
@@ -132,24 +132,26 @@ static ERL_NIF_TERM ramp_next(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 typedef struct {
   float m_lag;
   double m_b1, m_y1;
-  int rate;
+  uint rate, period_size;
+  int first;
 } Lag;
 
 static ERL_NIF_TERM lag_ctor(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   unsigned int rate;
-  double m_y1;
+  unsigned int period_size;
   if (!enif_get_uint(env, argv[0], &rate)){
     return enif_make_badarg(env);
   }
-  if (!enif_get_double(env, argv[1], &m_y1)){
+  if (!enif_get_uint(env, argv[1], &period_size)){
     return enif_make_badarg(env);
   }
   Lag * unit = enif_alloc_resource(sc_filter_type, sizeof(Lag));
   unit->m_lag = uninitializedControl;
   unit->m_b1 = 0.f;
-  unit->m_y1 = m_y1;
   unit->rate = rate;
+  unit->period_size = period_size;
+  unit->first = 1;
   // lag_next(unit, 1);
   ERL_NIF_TERM term = enif_make_resource(env, unit);
   enif_release_resource(unit);
@@ -161,8 +163,11 @@ static ERL_NIF_TERM lag_next(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
   Lag * unit;
   ErlNifBinary in_bin;
   float * out, * in;
+  int is_bin;
+  double in_scalar, out_scalar;
   ERL_NIF_TERM out_term;
   double lag;
+  int inNumSamples;
 
   if (!enif_get_resource(env, argv[0],
                          sc_filter_type,
@@ -170,7 +175,14 @@ static ERL_NIF_TERM lag_next(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_badarg(env);
   }
 
-  if(!enif_inspect_binary(env, argv[1], &in_bin)){
+  if(enif_inspect_binary(env, argv[1], &in_bin)){
+    inNumSamples = in_bin.size / sizeof(float);
+    in = (float * ) in_bin.data;
+    out = (float *) enif_make_new_binary(env, in_bin.size, &out_term);
+    is_bin = 1;
+  }else if(enif_get_double(env, argv[1], &in_scalar)){
+    is_bin = 0;
+  }else{
     return enif_make_badarg(env);
   }
 
@@ -178,27 +190,42 @@ static ERL_NIF_TERM lag_next(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return enif_make_badarg(env);
   }
 
-  int inNumSamples = in_bin.size / sizeof(float);
-  in = (float * ) in_bin.data;
-  out = (float *) enif_make_new_binary(env, in_bin.size, &out_term);
+  if(unit->first){
+    unit->m_y1 = is_bin?(*in):in_scalar;
+    unit->first = 0;
+  }
 
   double y1 = unit->m_y1;
   double b1 = unit->m_b1;
   double y0;
-  if (lag == unit->m_lag) {
-    for(int i = 0; i < inNumSamples; i++) {
-      y0 = *in++;
-      *out++ = y1 = y0 + b1 * (y1 - y0);
+
+  if(is_bin){
+    if (lag == unit->m_lag) {
+      for(int i = 0; i < inNumSamples; i++) {
+        y0 = *in++;
+        *out++ = y1 = y0 + b1 * (y1 - y0);
+      }
+    } else {
+      unit->m_b1 = lag == 0.f ? 0.f : exp(unit->period_size * log001 / (lag * unit->rate));
+      double b1_slope = (unit->m_b1 - b1) / inNumSamples; // inNumSamples = period_size
+      unit->m_lag = lag;
+      for(int i = 0; i < inNumSamples; i++){
+        b1 += b1_slope;
+        y0 = *in++;
+        *out++ = y1 = y0 + b1 * (y1 - y0);
+      }
     }
-  } else {
-    unit->m_b1 = lag == 0.f ? 0.f : exp(log001 / (lag * unit->rate));
-    double b1_slope = (unit->m_b1 - b1) / inNumSamples; // inNumSamples = period_size
-    unit->m_lag = lag;
-    for(int i = 0; i < inNumSamples; i++){
-      b1 += b1_slope;
-      y0 = *in++;
-      *out++ = y1 = y0 + b1 * (y1 - y0);
+  }else{
+    if (lag == unit->m_lag) {
+      y0 = in_scalar;
+      out_scalar = y1 = y0 + b1 * (y1 - y0);
+    } else {
+      unit->m_b1 = b1 = lag == 0.f ? 0.f : exp(unit->period_size * log001 / (lag * unit->rate));
+      unit->m_lag = lag;
+      y0 = in_scalar;
+      out_scalar = y1 = y0 + b1 * (y1 - y0);
     }
+    out_term = enif_make_double(env, out_scalar);
   }
   unit->m_y1 = zapgremlins(y1);
   return out_term;

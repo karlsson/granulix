@@ -12,6 +12,7 @@ defmodule GranulixStreamTest do
   alias Granulix.Envelope.ADSR
   alias SC.Plugin, as: ScP
   alias SC.Reverb.AnalogEcho
+  alias SC.Filter.Lag
 
   @docp """
   Setting up realtime scheduling policy SCHED_RR with
@@ -25,6 +26,8 @@ defmodule GranulixStreamTest do
   """
   setup do
     ctx = Granulix.Ctx.new()
+    sc_ctx = %SC.Ctx{rate: ctx.rate, period_size: ctx.period_size}
+    SC.Ctx.put(sc_ctx)
     [ctx: ctx]
   end
 
@@ -86,7 +89,8 @@ defmodule GranulixStreamTest do
 
   test "stream test sinus", context do
     rate = context[:ctx].rate
-    fm = Lfo.triangle(context[:ctx], 4) |> Stream.map(&(&1 * 20 + 440))
+    # fm = Lfo.triangle(context[:ctx], 4) |> Stream.map(&(&1 * 20 + 440))
+    fm = Lfo.triangle(context[:ctx], 4) |> Lfo.nma(40, 420)
     # You can have a stream as modulating frequency input for osc
     context[:ctx].period_size
     |> ScP.stream(Osc.sin(rate, fm))
@@ -134,7 +138,7 @@ defmodule GranulixStreamTest do
   end
 
   test "stream test lowpass", context do
-    fm = Lfo.triangle(context[:ctx], 0.25) |> Stream.map(&(&1 * 200 + 320))
+    fm = Lfo.triangle(context[:ctx], 0.25) |> Lfo.nma(400, 120)
     # You can have a stream as modulating frequency input for osc
     context[:ctx].period_size
     |> ScP.stream(%{Osc.sin(context[:ctx].rate) | frequency: fm})
@@ -212,6 +216,22 @@ defmodule GranulixStreamTest do
       end)
     |> Util.Stream.dur(7.0, rate) |> Util.Stream.pan(0.5)
     |> Granulix.Stream.play()
+  end
+
+  test "Lag filter", context do
+    rate = context[:ctx].rate
+    fm0 = Lfo.square(context[:ctx], 1) |> Lfo.nma(50, 425)
+    # Ramp lagtime from 0 to 1 during 5s
+    lagtime = Lfo.saw(context[:ctx], 1/5) |> Lfo.nma(-1,1)
+    fm = fm0 |> ScP.stream(Lag.new(lagtime))
+    # You can have a stream as modulating frequency input for osc
+    context[:ctx].period_size
+    |> ScP.stream(%{Osc.sin(rate) | frequency: fm})
+    |> Util.Stream.pan(0.5)
+    |> Util.Stream.dur(5.0, rate)
+    |> Granulix.Stream.play()
+
+    log_max_gauges()
   end
 
   # test "Multicard", context do
