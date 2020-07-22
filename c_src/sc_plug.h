@@ -48,3 +48,4 @@ static inline float cubicinterp(float x, float y0, float y1, float y2, float y3)
 #define sc_max(a, b) (((a) > (b)) ? (a) : (b))
 #define sc_min(a, b) (((a) < (b)) ? (a) : (b))
 const double log001 = log(0.001);
+const double sqrt2 = sqrt(2.);
