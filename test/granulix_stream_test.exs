@@ -12,7 +12,7 @@ defmodule GranulixStreamTest do
   alias Granulix.Envelope.ADSR
   alias SC.Plugin, as: ScP
   alias SC.Reverb.AnalogEcho
-  alias SC.Filter.Lag
+  alias SC.Filter.{Lag, LPF, HPF}
 
   @docp """
   Setting up realtime scheduling policy SCHED_RR with
@@ -142,7 +142,8 @@ defmodule GranulixStreamTest do
     # You can have a stream as modulating frequency input for osc
     context[:ctx].period_size
     |> ScP.stream(%{Osc.sin(context[:ctx].rate) | frequency: fm})
-    |> ScP.stream(Biquad.lowpass(context[:ctx].rate, 320, 10))
+    # |> ScP.stream(Biquad.lowpass(context[:ctx].rate, 320, 2.0))
+    |> ScP.stream(LPF.new(420.0))
     |> Util.Stream.pan(0.5)
     |> Util.Stream.dur(5.0, context[:ctx].rate)
     |> Granulix.Stream.play()
@@ -155,8 +156,9 @@ defmodule GranulixStreamTest do
     # You can have a stream as modulating frequency input for osc
     context[:ctx].period_size
     |> ScP.stream(%{Osc.sin(context[:ctx].rate) | frequency: fm})
-    |> Stream.map(fn frames -> Ma.mul(frames, 0.4) end)
-    |> ScP.stream(Biquad.highpass(context[:ctx].rate, 320, 10))
+    # |> Stream.map(fn frames -> Ma.mul(frames, 0.4) end)
+    # |> ScP.stream(Biquad.highpass(context[:ctx].rate, 320, 10))
+    |> ScP.stream(HPF.new(320.0))
     |> Util.Stream.pan(0.5)
     |> Util.Stream.dur(5.0, context[:ctx].rate)
     |> Granulix.Stream.play()
@@ -171,7 +173,7 @@ defmodule GranulixStreamTest do
       openhat(rate, period_size)
       closehat(rate, period_size)
     end)
-    :timer.sleep(2)
+    :timer.sleep(1000)
     log_max_gauges()
   end
 
@@ -267,6 +269,7 @@ defmodule GranulixStreamTest do
       period_size
       |> ScP.stream(Noise.white())
       |> ScP.stream(Biquad.lowpass(rate, 1500))
+      # |> ScP.stream(LPF.new(1500))
       |> (fn enum -> Stream.concat(Envelope.saw(enum, rate, 0.02), Envelope.empty_stream(enum)) end).()
 
     Stream.zip(suboutput, clickoutput)
@@ -279,8 +282,10 @@ defmodule GranulixStreamTest do
   defp hihat(rate, period_size, dur) do
     period_size
     |> ScP.stream(Noise.white())
-    |> ScP.stream(Biquad.lowpass(rate, 6000, 1.2))
-    |> ScP.stream(Biquad.highpass(rate, 2000, 1.2))
+    # |> ScP.stream(Biquad.lowpass(rate, 6000, 1.2))
+    # |> ScP.stream(Biquad.highpass(rate, 2000, 1.2))
+    |> ScP.stream(LPF.new(6000))
+    |> ScP.stream(HPF.new(2000))
     |> Envelope.saw(rate, dur)
     |> Util.Stream.pan(0.5)
     |> Util.Stream.dur(0.5, rate)

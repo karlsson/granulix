@@ -42,10 +42,18 @@ defmodule Granulix.MixProject do
     ++ deps(:git)
   end
 
-  defp deps(:hex), do: [{:xalsa, "~> 0.3.0"}]
-  defp deps(:git), do: [{:xalsa, git: "https://github.com/karlsson/xalsa.git"}]
-  defp deps(:path), do: [{:xalsa, path: "../xalsa"}]
-
+  defp deps(:hex) do
+    [{:xalsa, "~> 0.3.0"},
+     {:sc_plugin_nifs, git: "https://github.com/karlsson/sc_plugin_nifs.git"}]
+  end
+  defp deps(:git) do
+    [{:xalsa, git: "https://github.com/karlsson/xalsa.git"},
+     {:sc_plugin_nifs, git: "https://github.com/karlsson/sc_plugin_nifs.git"}]
+  end
+  defp deps(:path) do
+    [{:xalsa, path: "../xalsa"},
+     {:sc_plugin_nifs, path: "../sc_plugin_nifs"}]
+  end
   defp description do
      "Synthesizing software using NIF generators and filters."
   end
