@@ -29,8 +29,9 @@ defmodule Granulix.Generator.Lfo do
   """
 
 
-  @spec sin(ctx :: Granulix.Ctx.ctx(), frequency :: number()) :: Enumerable.float()
-  def sin(ctx, freq) do
+  @spec sin(frequency :: number()) :: Enumerable.float()
+  def sin(freq) do
+    ctx = Granulix.Ctx.get()
     step = GM.twopi() * freq * ctx.period_size / ctx.rate
 
     Stream.unfold(
@@ -47,8 +48,9 @@ defmodule Granulix.Generator.Lfo do
     )
   end
 
-  @spec saw(ctx :: Granulix.Ctx.ctx(), frequency :: number()) :: Enumerable.float()
-  def saw(ctx, freq) do
+  @spec saw(frequency :: number()) :: Enumerable.float()
+  def saw(freq) do
+    ctx = Granulix.Ctx.get()
     step = 2 * freq * ctx.period_size / ctx.rate
 
     Stream.unfold(
@@ -69,8 +71,9 @@ defmodule Granulix.Generator.Lfo do
     )
   end
 
-  @spec triangle(ctx :: Granulix.Ctx.ctx(), frequency :: number()) :: Enumerable.float()
-  def triangle(ctx, freq) do
+  @spec triangle(frequency :: number()) :: Enumerable.float()
+  def triangle(freq) do
+    ctx = Granulix.Ctx.get()
     step = 4 * freq * ctx.period_size / ctx.rate
 
     Stream.unfold(
@@ -95,8 +98,9 @@ defmodule Granulix.Generator.Lfo do
     )
   end
 
-  @spec square(ctx :: Granulix.Ctx.ctx(), frequency :: number(), duty :: float()) :: Enumerable.float()
-  def square(ctx, freq, duty \\ 0.5) do
+  @spec square(frequency :: number(), duty :: float()) :: Enumerable.float()
+  def square(freq, duty \\ 0.5) do
+    ctx = Granulix.Ctx.get()
     step = freq * ctx.period_size / ctx.rate
 
     Stream.unfold(

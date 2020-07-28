@@ -43,9 +43,9 @@ defmodule Granulix.Util do
     The time argument is in seconds.
     """
     @spec dur(enum :: lfs(),
-      time :: float(),
-      rate :: pos_integer()) :: lfs()
-    def dur(enum, time, rate) do
+      time :: float()) :: lfs()
+    def dur(enum, time) do
+      rate = (Granulix.Ctx.get()).rate
       no_of_frames = round(time * rate)
 
       Elixir.Stream.transform(

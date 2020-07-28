@@ -25,8 +25,7 @@ defmodule GranulixTest do
     assert Ma.float_list_to_binary([2.0, 4.0]) == <<0, 0, 0, 64, 0, 0, 128, 64>>
   end
 
-  test "twinkle", context do
-    rate = context[:ctx].rate
+  test "twinkle", _context do
     dur = 0.3
     no_frames = tot_frames(dur)
     # This means overlap of 2 grains
@@ -40,7 +39,7 @@ defmodule GranulixTest do
       notes
       |> Enum.map(fn x ->
         freq(x)
-        |> generate_sinus(rate, no_frames)
+        |> generate_sinus(no_frames)
         |> Ma.mul(0.2)
         |> Ma.mul(env)
         # |> Granulix.Math.simdcross(env)
@@ -90,8 +89,7 @@ defmodule GranulixTest do
 
   # Some code translated from Bartetzki Supercollider grains example 3
   # https://www.bartetzki.de/docs/kita_sc08/examples_5_(grains+tasks).rtf
-  test "example 3 dense random texture", context do
-    rate = context[:ctx].rate
+  test "example 3 dense random texture", _context do
     dur = 0.2
     no_frames = tot_frames(dur)
     env = line_envelope(no_frames)
@@ -107,7 +105,7 @@ defmodule GranulixTest do
       spawn(fn ->
         pos = Enum.random(0..100) / 100
 
-        generate_sinus(freq, rate, no_frames)
+        generate_sinus(freq, no_frames)
         |> Ma.add(white)
         |> Ma.mul(env)
         |> Ma.mul(vol)
@@ -167,7 +165,7 @@ defmodule GranulixTest do
     no_frames = tot_frames(dur)
     env = line_envelope(no_frames)
 
-    generate_sinus(freq, Granulix.rate(), no_frames)
+    generate_sinus(freq, no_frames)
     |> pan(pos)
     |> Ma.mul(env)
     |> Ma.mul(vol)
@@ -179,7 +177,7 @@ defmodule GranulixTest do
     nof_click = tot_frames(0.02)
 
     suboutput =
-      generate_sinus(100, Granulix.rate(), nof_sub)
+      generate_sinus(100, nof_sub)
       |> Ma.mul(line_envelope(nof_sub))
 
     clickoutput =
@@ -211,8 +209,8 @@ defmodule GranulixTest do
     ScP.next(no_of_frames, Noise.white())
   end
 
-  defp generate_sinus(freq, rate, no_of_frames) do
-    Osc.next(%{Osc.sin(rate) | frequency: freq}, no_of_frames)
+  defp generate_sinus(freq, no_of_frames) do
+    Osc.next(Osc.sin(freq), no_of_frames)
   end
 
   defp cososc(stop, stop, _step, acc) do

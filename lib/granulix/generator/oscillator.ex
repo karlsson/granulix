@@ -37,19 +37,22 @@ defmodule Granulix.Generator.Oscillator do
 
   # -----------------------------------------------------------
 
-  @spec sin(rate :: integer(), frequency :: frequency()) :: oscillator()
-  def sin(rate, frequency \\ 440.0) do
-    %Oscillator{ref: osc_ctor(rate, :sin), frequency: frequency}
+  @spec sin(frequency :: frequency()) :: oscillator()
+  def sin(frequency \\ 440.0) do
+    ctx = Granulix.Ctx.get()
+    %Oscillator{ref: osc_ctor(ctx.rate, :sin), frequency: frequency}
   end
 
-  @spec saw(rate :: integer(), frequency :: frequency()) :: oscillator()
-  def saw(rate, frequency \\ 440.0) do
-    %Oscillator{ref: osc_ctor(rate, :saw), frequency: frequency}
+  @spec saw(frequency :: frequency()) :: oscillator()
+  def saw(frequency \\ 440.0) do
+    ctx = Granulix.Ctx.get()
+    %Oscillator{ref: osc_ctor(ctx.rate, :saw), frequency: frequency}
   end
 
-  @spec triangle(rate :: integer(), frequency :: frequency()) :: oscillator()
-  def triangle(rate, frequency \\ 440.0) do
-    %Oscillator{ref: osc_ctor(rate, :triangle), frequency: frequency}
+  @spec triangle(frequency :: frequency()) :: oscillator()
+  def triangle(frequency \\ 440.0) do
+    ctx = Granulix.Ctx.get()
+    %Oscillator{ref: osc_ctor(ctx.rate, :triangle), frequency: frequency}
   end
 
   @doc "Get next no of frames"
@@ -77,4 +80,22 @@ defmodule Granulix.Generator.Oscillator do
         )
     end
   end
+
+  defmodule Stream do
+    alias Granulix.Generator.Oscillator, as: Parent
+
+    def sin(frequency \\ 440.0) do
+      Parent.stream(Parent.sin(frequency), (Granulix.Ctx.get()).period_size)
+    end
+
+    def saw(frequency \\ 440.0) do
+      Parent.stream(Parent.saw(frequency), (Granulix.Ctx.get()).period_size)
+    end
+
+    def triangle(frequency \\ 440.0) do
+      Parent.stream(Parent.triangle(frequency), (Granulix.Ctx.get()).period_size)
+    end
+
+  end
+
 end

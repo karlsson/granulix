@@ -53,8 +53,13 @@ defmodule Granulix.Filter.Biquad do
   defp get_alpha(:slope, _w0, sin_w0, s, a),
     do: sin_w0 / 2 * :math.sqrt((a + 1 / a) * (1 / s - 1) + 2)
 
-  def lowpass(rate, freq, q \\ 1.0) do
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+  defp get_rate() do
+    %SC.Ctx{rate: rate} = SC.Ctx.get()
+    rate
+  end
+
+  def lowpass(freq, q \\ 1.0) do
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(:q, w0, sin_w0, q, :none)
 
     a0 = 1 + alpha
@@ -66,8 +71,8 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def highpass(rate, freq, q \\ 1.0) do
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+  def highpass(freq, q \\ 1.0) do
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(:q, w0, sin_w0, q, :none)
     one_plus_cos_w0 = 1 + cos_w0
 
@@ -80,8 +85,8 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def bandpass_skirt(rate, freq, {type, q_or_bw} \\ {:q, 1.0}) do
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+  def bandpass_skirt(freq, {type, q_or_bw} \\ {:q, 1.0}) do
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(type, w0, sin_w0, q_or_bw, :none)
     half_sin_w0 = sin_w0 / 2
 
@@ -95,8 +100,8 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def bandpass_peak(rate, freq, {type, q_or_bw} \\ {:q, 1.0}) do
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+  def bandpass_peak(freq, {type, q_or_bw} \\ {:q, 1.0}) do
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(type, w0, sin_w0, q_or_bw, :none)
 
     a0 = 1 + alpha
@@ -109,8 +114,8 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def notch(rate, freq, {type, q_or_bw} \\ {:q, 1.0}) do
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+  def notch(freq, {type, q_or_bw} \\ {:q, 1.0}) do
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(type, w0, sin_w0, q_or_bw, :none)
 
     a0 = 1 + alpha
@@ -121,8 +126,8 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def allpass(rate, freq, q \\ 1.0) do
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+  def allpass(freq, q \\ 1.0) do
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(:q, w0, sin_w0, q, :none)
 
     a0 = b2 = 1 + alpha
@@ -132,9 +137,9 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def peaking_eq(rate, freq, db_gain, {type, q_or_bw} \\ {:q, 1.0}) do
+  def peaking_eq(freq, db_gain, {type, q_or_bw} \\ {:q, 1.0}) do
     a = get_a(db_gain)
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(type, w0, sin_w0, q_or_bw, :none)
     alpha_on_a = alpha / a
     a_times_alpha = alpha * a
@@ -148,9 +153,9 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def lowshelf(rate, freq, db_gain, {type, q_or_slope} \\ {:q, 1.0}) do
+  def lowshelf(freq, db_gain, {type, q_or_slope} \\ {:q, 1.0}) do
     a = get_a(db_gain)
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(type, w0, sin_w0, q_or_slope, a)
     ap1 = a + 1
     am1 = a - 1
@@ -168,9 +173,9 @@ defmodule Granulix.Filter.Biquad do
     %Biquad{ref: Biquad.biquad_ctor(), coefficients: {a0, a1, a2, b0, b1, b2}}
   end
 
-  def highshelf(rate, freq, db_gain, {type, q_or_slope} \\ {:q, 1.0}) do
+  def highshelf(freq, db_gain, {type, q_or_slope} \\ {:q, 1.0}) do
     a = get_a(db_gain)
-    {w0, cos_w0, sin_w0} = get_w0(rate, freq)
+    {w0, cos_w0, sin_w0} = get_w0(get_rate(), freq)
     alpha = get_alpha(type, w0, sin_w0, q_or_slope, a)
     ap1 = a + 1
     am1 = a - 1

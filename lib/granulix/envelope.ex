@@ -6,12 +6,11 @@ defmodule Granulix.Envelope do
 
   Here is a simple example of use with own multiplier (envelope value * 0.4):
   ```elixir
-  ctx = Granulix.Ctx.new()
-  rate = ctx.rate
-  fm = Lfo.sin(ctx, 4) |> Stream.map(&(&1 * 10 + 320))
 
-  Granulix.Stream.new(%{Oscillator.triangle(rate) | frequency: fm})
-  |> Envelope.sin_tuple(rate, 2.0)
+  fm = Lfo.sin(4) |> Stream.map(&(&1 * 10 + 320))
+
+  Granulix.Stream.new(Oscillator.triangle(fm))
+  |> Envelope.sin_tuple(2.0)
   |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
   ```
   Using the sin/3 instead and excluding the Stream.map/2 function is the
@@ -27,10 +26,9 @@ defmodule Granulix.Envelope do
   The duration argument is in seconds.
   """
   @spec sin(enum :: fs(),
-    rate :: pos_integer(),
     duration :: float()) :: fs()
-  def sin(enum, rate, duration) do
-    sin_tuple(enum, rate, duration)
+  def sin(enum,duration) do
+    sin_tuple(enum, duration)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
   end
 
@@ -39,10 +37,10 @@ defmodule Granulix.Envelope do
   the frames and the envelope value in a tuple.
   """
   @spec sin_tuple(enum :: fs(),
-    rate :: pos_integer(),
     duration :: float()) :: envelope_tuple()
-  def sin_tuple(enum, rate, duration) do
-    no_of_frames = round(duration * rate)
+  def sin_tuple(enum, duration) do
+    ctx = Granulix.Ctx.get()
+    no_of_frames = round(duration * ctx.rate)
     twopi_by_nof = :math.pi() * 2 / no_of_frames
 
     Stream.transform(enum, 0, fn frames, progress ->
@@ -61,10 +59,9 @@ defmodule Granulix.Envelope do
   limit the frame array. The duration argument is in seconds.
   """
   @spec saw(enum :: fs(),
-    rate :: pos_integer(),
     duration :: float()) :: fs()
-  def saw(enum, rate, duration) do
-    saw_tuple(enum, rate, duration)
+  def saw(enum, duration) do
+    saw_tuple(enum, duration)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
   end
   @doc """
@@ -72,29 +69,27 @@ defmodule Granulix.Envelope do
   the frames and the envelope value in a tuple.
   """
   @spec saw_tuple(enum :: fs(),
-    rate :: pos_integer(),
     duration :: float()) :: envelope_tuple()
-  def saw_tuple(enum, rate, duration) do
-    line_tuple(enum, rate, duration, 1.0, 0.0)
+  def saw_tuple(enum, duration) do
+    line_tuple(enum, duration, 1.0, 0.0)
   end
 
   @spec line(enum :: fs(),
-    rate :: pos_integer(),
     duration :: float(),
     startv :: float(),
     endv:: float()) :: fs()
-  def line(enum, rate, duration, startv, endv) do
-    line_tuple(enum, rate, duration, startv, endv)
+  def line(enum, duration, startv, endv) do
+    line_tuple(enum, duration, startv, endv)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
   end
 
   @spec line_tuple(enum :: fs(),
-    rate :: pos_integer(),
     duration :: float(),
     startv :: float(),
     endv:: float()) :: envelope_tuple()
-  def line_tuple(enum, rate, duration, startv, endv) do
-    no_of_frames = round(duration * rate)
+  def line_tuple(enum, duration, startv, endv) do
+    ctx = Granulix.Ctx.get()
+    no_of_frames = round(duration * ctx.rate)
 
     Stream.transform(enum, 0, fn frames, progress ->
       if progress < no_of_frames do
@@ -116,12 +111,13 @@ defmodule Granulix.Envelope do
       sustain: 0.0, sustain_level: 1.0,
       release: 1.0]
 
-    def new(enum, rate, adsr = %ADSR{}) do
-      tuple(enum, rate, adsr)
+    def new(enum, adsr = %ADSR{}) do
+      tuple(enum, adsr)
       |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul) end)
     end
 
-    def tuple(enum, rate, adsr0 = %ADSR{decay_level: dl, sustain_level: sl}) do
+    def tuple(enum, adsr0 = %ADSR{decay_level: dl, sustain_level: sl}) do
+      %Granulix.Ctx{rate: rate} = Granulix.Ctx.get()
       a = cond do
         dl == nil -> %{adsr0 | decay_level: sl}
         true -> adsr0
