@@ -7,7 +7,8 @@ defmodule Granulix.Util do
   """
   @spec pan(x :: Granulix.frames(), pos :: float()) :: list(Granulix.frames)
   def pan(x, pos) when is_binary(x) do
-    [Math.mul(x, pos), Math.mul(x, 1.0 - pos)]
+    posn = 0.5 * pos + 0.5
+    [Math.mul(x, posn), Math.mul(x, 1.0 - posn)]
   end
 
   @doc "Sum a list of frames into one"
@@ -33,8 +34,12 @@ defmodule Granulix.Util do
     of two frame arrays.
     """
     @spec pan(enum :: fs(), pos :: float()) :: list_of_frames_stream()
-    def pan(enum, panning) do
+    def pan(enum, panning) when is_number(panning) do
       Elixir.Stream.map(enum, fn frames -> Granulix.Util.pan(frames, panning) end)
+    end
+    def pan(enum, panning) do
+      Elixir.Stream.zip(enum, panning)
+      |> Elixir.Stream.map(fn {frames, panf} -> Granulix.Util.pan(frames, panf) end)
     end
 
     @doc """

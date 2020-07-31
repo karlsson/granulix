@@ -47,6 +47,9 @@ defmodule Granulix.Filter.Moog do
     %Moog{ref: Moog.moog_ctor(), cutoff: cutoff, resonance: resonance}
   end
 
+  def ns(enum, cutoff, resonance) do
+    stream(new(cutoff, resonance), enum)
+  end
 
   @impl SC.Plugin
   def next(%Moog{ref: ref, cutoff: cf, resonance: r}, frames) do

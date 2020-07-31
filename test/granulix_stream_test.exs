@@ -24,6 +24,11 @@ defmodule GranulixStreamTest do
   @audio   -  rtprio     95
   @audio   -  memlock    unlimited
   """
+
+  def ma(enum, m, a) do
+    Stream.map(enum, fn val -> val * m + a end)
+  end
+
   setup do
     ctx = Granulix.Ctx.new()
     sc_ctx = %SC.Ctx{rate: ctx.rate, period_size: ctx.period_size}
@@ -43,7 +48,7 @@ defmodule GranulixStreamTest do
       freq = Enum.random(1000..7000)
       next = PlayTime.wait(time0, x * dur * Enum.random(10..40) / 800)
       # next = 0.005
-      pos = Enum.random(0..100) / 100
+      pos = Enum.random(-100..100) / 100
 
       spawn(fn ->
         timeout = PlayTime.timeout(next)
@@ -61,7 +66,7 @@ defmodule GranulixStreamTest do
   end
 
   test "kickdrum with streams", _context do
-    pos = 0.5
+    pos = 0.0
     time0 = PlayTime.wait(%MsTime{}, 0.5)
 
     for x <- 1..12, y <- [0, 1, 3] do
@@ -87,7 +92,7 @@ defmodule GranulixStreamTest do
     fm = Lfo.triangle(4) |> Lfo.nma(40, 420)
     # You can have a stream as modulating frequency input for osc
     Osc.Stream.sin(fm)
-    |> Util.Stream.pan(0.5)
+    |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5.0)
     |> Granulix.Stream.play()
 
@@ -104,7 +109,7 @@ defmodule GranulixStreamTest do
         Osc.saw(freq))
     end)
     |> Stream.map(fn frames -> Ma.mul(frames, 0.3) end)
-    |> Util.Stream.pan(0.5)
+    |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5)
     |> Granulix.Stream.play()
 
@@ -112,14 +117,15 @@ defmodule GranulixStreamTest do
   end
 
   test "stream test triangle", _context do
-    Lfo.sin(4) |> Stream.map(&(&1 * 10 + 320))
+    Lfo.sin(4) |> Lfo.nma(20,300) # Between 300 and 320 at 4 Hz
     |> Osc.Stream.triangle()
     |> Envelope.sin_tuple(2.0)
     |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
     |> Util.Stream.dur(2.0)
-    |> ScP.stream(AnalogEcho.new(0.3))
-    |> Stream.zip(Lfo.sin(1.5))
-    |> Stream.map(fn {frames, panning} -> Granulix.Util.pan(frames, panning) end)
+    |> AnalogEcho.ns(0.3)
+    # |> Stream.zip(Lfo.sin(1.5))
+    # |> Stream.map(fn {frames, panning} -> Granulix.Util.pan(frames, panning) end)
+    |> Util.Stream.pan(Lfo.sin(1.5))
     |> Granulix.Stream.play()
 
     log_max_gauges()
@@ -131,7 +137,7 @@ defmodule GranulixStreamTest do
     Osc.Stream.sin(fm)
     # |> ScP.stream(Biquad.lowpass(320, 2.0))
     |> LPF.ns(420.0)
-    |> Util.Stream.pan(0.5)
+    |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5.0)
     |> Granulix.Stream.play()
 
@@ -145,7 +151,7 @@ defmodule GranulixStreamTest do
     # |> Stream.map(fn frames -> Ma.mul(frames, 0.4) end)
     # |> ScP.stream(Biquad.highpass(320, 10))
     |> HPF.ns(320.0)
-    |> Util.Stream.pan(0.5)
+    |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5.0)
     |> Granulix.Stream.play()
 
@@ -163,12 +169,11 @@ defmodule GranulixStreamTest do
 
   test "Moog test", _context do
     streamf = fn(freq) ->
-      fm = Lfo.triangle(5.0) |> Stream.map(&(&1 * 5 + freq))
-      panmove = Lfo.triangle(1.0) |> Stream.map(&(&1*0.4 + 0.5 ))
+      Lfo.triangle(5.0) |> ma(5, freq)
       # You can have a stream as modulating frequency input for osc
-      Osc.Stream.sin(fm)
-      |> ScP.stream(Granulix.Filter.Moog.new(0.1, 3.2))
-      |> Stream.zip(panmove) |> Stream.map(fn {x, y} -> Util.pan(x, y) end)
+      |> Osc.Stream.sin()
+      |> Granulix.Filter.Moog.ns(0.1, 3.2)
+      |> Util.Stream.pan(Lfo.triangle(1.0) |> ma(0.8, 0))
       |> Granulix.Stream.out()
      end
     a = streamf.(freq(:A))
@@ -182,7 +187,7 @@ defmodule GranulixStreamTest do
   test "Bitcrusher", _context do
     Osc.Stream.sin(440)
     |> ScP.stream(Bitcrusher.new(4, 0.5))
-    |> Util.Stream.dur(1.5) |> Util.Stream.pan(0.5)
+    |> Util.Stream.dur(1.5) |> Util.Stream.pan(0.0)
     |> Granulix.Stream.play()
 
     bc = Bitcrusher.new(4, 0.7)
@@ -192,7 +197,7 @@ defmodule GranulixStreamTest do
     |> Stream.map(fn {enum, envelope} ->
       ScP.next(enum, %{bc | bits: (1 + envelope*7)})
       end)
-    |> Util.Stream.dur(7.0) |> Util.Stream.pan(0.5)
+    |> Util.Stream.dur(7.0) |> Util.Stream.pan(0.0)
     |> Granulix.Stream.play()
   end
 
@@ -200,10 +205,10 @@ defmodule GranulixStreamTest do
     fm0 = Lfo.square(1) |> Lfo.nma(50, 425)
     # Ramp lagtime from 0 to 1 during 5s
     lagtime = Lfo.saw(1/5) |> Lfo.nma(-1,1)
-    fm = fm0 |> ScP.stream(Lag.new(lagtime))
+    fm = fm0 |> Lag.ns(lagtime)
     # You can have a stream as modulating frequency input for osc
     Osc.Stream.sin(fm)
-    |> Util.Stream.pan(0.5)
+    |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5.0)
     |> Granulix.Stream.play()
 
@@ -257,7 +262,7 @@ defmodule GranulixStreamTest do
     |> LPF.ns(6000)
     |> HPF.ns(2000)
     |> Envelope.saw(dur)
-    |> Util.Stream.pan(0.5)
+    |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(0.5)
     |> Granulix.Stream.play()
   end
