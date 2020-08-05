@@ -50,7 +50,9 @@ defmodule Granulix.Util do
     @spec dur(enum :: lfs(),
       time :: float()) :: lfs()
     def dur(enum, time) do
-      rate = (Granulix.Ctx.get()).rate
+      ctx = Granulix.Ctx.get()
+      rate = ctx.rate
+      period_size = ctx.period_size
       no_of_frames = round(time * rate)
 
       Elixir.Stream.transform(
@@ -58,16 +60,27 @@ defmodule Granulix.Util do
         no_of_frames,
         fn frames, acc ->
           if acc > 0 do
-            case is_list(frames) do
-              true ->
+            cond do
+              is_list(frames)  ->
                 {[frames], acc - byte_size(hd(frames)) / 4}
-              false ->
+              is_binary(frames) ->
                 {[frames], acc - byte_size(frames) / 4}
+              is_float(frames) ->
+                {[frames], acc - period_size}
+              is_integer(frames) ->
+                {[frames * 1.0], acc - period_size}
             end
           else
             {:halt, acc}
           end
         end)
+    end
+
+    def value(value) when is_number(value) do
+      Elixir.Stream.unfold(
+        value * 1.0,
+        fn x -> {x,x} end
+      )
     end
   end
 end

@@ -12,7 +12,7 @@ defmodule GranulixStreamTest do
   alias Granulix.Envelope.ADSR
   alias SC.Plugin, as: ScP
   alias SC.Reverb.AnalogEcho
-  alias SC.Filter.{Lag, LPF, HPF}
+  alias SC.Filter.{Lag, LPF, HPF, LagUD}
 
   @docp """
   Setting up realtime scheduling policy SCHED_RR with
@@ -210,6 +210,18 @@ defmodule GranulixStreamTest do
     Osc.Stream.sin(fm)
     |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5.0)
+    |> Granulix.Stream.play()
+
+    log_max_gauges()
+  end
+
+  test "LagUD filter", _context do
+    # value,duration stream
+    vd = fn freq, dur -> Util.Stream.value(freq) |> Util.Stream.dur(dur) end
+    Stream.concat([vd.(300,2), vd.(500,4), vd.(100,5)])
+    |> LagUD.ns(1.0, 5.0) # 1s lag for rising values and 5s lag for decreasing
+    |> Osc.Stream.sin()
+    |> Util.Stream.pan(Lfo.sin(1/3))
     |> Granulix.Stream.play()
 
     log_max_gauges()
