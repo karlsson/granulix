@@ -51,9 +51,8 @@ defmodule Granulix.Util do
       time :: float()) :: lfs()
     def dur(enum, time) do
       ctx = Granulix.Ctx.get()
-      rate = ctx.rate
       period_size = ctx.period_size
-      no_of_frames = round(time * rate)
+      no_of_frames = round(time * ctx.rate)
 
       Elixir.Stream.transform(
         enum,
@@ -82,5 +81,22 @@ defmodule Granulix.Util do
         fn x -> {x,x} end
       )
     end
+
+    def setter(key, start_value) when is_number(start_value) do
+      Elixir.Stream.unfold(
+        start_value * 1.0,
+        fn x ->
+          receive do
+            {^key,nil} -> nil
+            {^key,y} -> {y,y}
+          after
+            0 -> {x,x}
+          end
+        end
+      )
+    end
+
+    def set(pid, key, :halt), do: send(pid, {key, nil})
+    def set(pid, key, value), do: send(pid, {key, 1.0 * value})
   end
 end

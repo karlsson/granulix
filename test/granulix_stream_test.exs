@@ -202,16 +202,37 @@ defmodule GranulixStreamTest do
   end
 
   test "Lag filter", _context do
-    fm0 = Lfo.square(1) |> Lfo.nma(50, 425)
     # Ramp lagtime from 0 to 1 during 5s
     lagtime = Lfo.saw(1/5) |> Lfo.nma(-1,1)
-    fm = fm0 |> Lag.ns(lagtime)
+    Lfo.square(1) |> Lfo.nma(50, 425)
+    |> Lag.ns(lagtime)
     # You can have a stream as modulating frequency input for osc
-    Osc.Stream.sin(fm)
+    |> Osc.Stream.sin()
     |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5.0)
     |> Granulix.Stream.play()
 
+    log_max_gauges()
+  end
+
+  test "Lag filter 2", _context do
+    stream = fn freq->
+      Util.Stream.setter(:freq, freq)
+      |> Lag.ns(2.0)
+      |> Osc.Stream.sin()
+      |> Util.Stream.pan(0.0)
+      |> Granulix.Stream.play()
+    end
+    pid1 = spawn(fn -> stream.(320) end)
+    pid2 = spawn(fn -> stream.(400) end)
+    :timer.sleep(2000)
+    Util.Stream.set(pid1, :freq, 475)
+    :timer.sleep(1000)
+    Util.Stream.set(pid2, :freq, 220)
+    :timer.sleep(3000)
+    Util.Stream.set(pid1, :freq, :halt)
+    :timer.sleep(1000)
+    Util.Stream.set(pid2, :freq, :halt)
     log_max_gauges()
   end
 
