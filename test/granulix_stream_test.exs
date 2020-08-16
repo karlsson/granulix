@@ -11,7 +11,7 @@ defmodule GranulixStreamTest do
   alias Granulix.Envelope
   alias Granulix.Envelope.ADSR
   alias SC.Plugin, as: ScP
-  alias SC.Reverb.AnalogEcho
+  alias SC.Reverb.{AnalogEcho, FreeVerb}
   alias SC.Filter.{Lag, LPF, HPF, LagUD}
 
   @docp """
@@ -26,7 +26,19 @@ defmodule GranulixStreamTest do
   """
 
   def ma(enum, m, a) do
-    Stream.map(enum, fn val -> val * m + a end)
+    Stream.map(enum, fn
+      frames when is_list(frames) -> Ma.add(Ma.mul(frames, m), a)
+      frames when is_binary(frames) -> Ma.add(Ma.mul(frames, m), a)
+      val -> val * m + a
+    end)
+  end
+
+  def m(enum, m) do
+    Stream.map(enum, fn
+      frames when is_list(frames) -> Ma.mul(frames, m)
+      frames when is_binary(frames) -> Ma.mul(frames, m)
+      val -> val * m
+    end)
   end
 
   setup do
@@ -108,7 +120,7 @@ defmodule GranulixStreamTest do
       SC.Plugin.next(no_of_frames,
         Osc.saw(freq))
     end)
-    |> Stream.map(fn frames -> Ma.mul(frames, 0.3) end)
+    |> m(0.3)
     |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5)
     |> Granulix.Stream.play()
@@ -216,15 +228,17 @@ defmodule GranulixStreamTest do
   end
 
   test "Lag filter 2", _context do
-    stream = fn freq->
+    stream = fn freq, pan->
       Util.Stream.setter(:freq, freq)
       |> Lag.ns(2.0)
       |> Osc.Stream.sin()
-      |> Util.Stream.pan(0.0)
+      |> m(0.4)
+      |> Util.Stream.pan(pan)
+      |> FreeVerb.ns2(0.6, 0.8, 0.2)
       |> Granulix.Stream.play()
     end
-    pid1 = spawn(fn -> stream.(320) end)
-    pid2 = spawn(fn -> stream.(400) end)
+    pid1 = spawn(fn -> stream.(320, 0.5) end)
+    pid2 = spawn(fn -> stream.(400, Lfo.sin(1.5)) end)
     :timer.sleep(2000)
     Util.Stream.set(pid1, :freq, 475)
     :timer.sleep(1000)

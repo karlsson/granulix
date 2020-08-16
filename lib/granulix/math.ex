@@ -33,12 +33,12 @@ defmodule Granulix.Math do
   def mul(x, y), do: mulnif(x, y)
 
   @doc "Add binary arrays of 32 bit floats with binary array"
-  @spec add(binary() | [binary()], binary()) :: binary()
+  @spec add(binary() | [binary()], binary() | float()) :: binary()
   def add(l, y) when is_list(l), do: Enum.map(l, fn x -> add(x, y) end)
   def add(x, y) when is_binary(x), do: addnif(x, y)
 
   @doc "Subtract binary arrays of 32 bit floats with binary array"
-  @spec subtract(binary() | [binary()], binary()) :: binary()
+  @spec subtract(binary() | [binary()], binary() | float()) :: binary()
   def subtract(l, y) when is_list(l), do: Enum.map(l, fn x -> subtract(x, y) end)
   def subtract(x, y) when is_binary(x), do: subtractnif(x, y)
 
