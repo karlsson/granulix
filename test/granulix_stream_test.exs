@@ -112,14 +112,8 @@ defmodule GranulixStreamTest do
   end
 
   test "stream test saw", context do
-    gctx = context[:ctx]
-    no_of_frames = gctx.period_size
-
     Lfo.sin(4) |> Lfo.nma(40,200) # 200 <-> 240, 4 Hz
-    |> Stream.map(fn freq ->
-      SC.Plugin.next(no_of_frames,
-        Osc.saw(freq))
-    end)
+    |> Osc.Stream.saw()
     |> m(0.3)
     |> Util.Stream.pan(0.0)
     |> Util.Stream.dur(5)

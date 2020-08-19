@@ -33,7 +33,7 @@ defmodule Granulix.Util do
     pos shall be between 0.0 and 1.0. The returned stream holds a list
     of two frame arrays.
     """
-    @spec pan(enum :: fs(), pos :: float()) :: list_of_frames_stream()
+    @spec pan(enum :: fs(), pos :: float() | Enumerable.t) :: list_of_frames_stream()
     def pan(enum, panning) when is_number(panning) do
       Elixir.Stream.map(enum, fn frames -> Granulix.Util.pan(frames, panning) end)
     end

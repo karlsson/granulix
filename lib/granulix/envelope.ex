@@ -9,7 +9,7 @@ defmodule Granulix.Envelope do
 
   fm = Lfo.sin(4) |> Stream.map(&(&1 * 10 + 320))
 
-  Granulix.Stream.new(Oscillator.triangle(fm))
+  SC.Plugin.stream(Oscillator.triangle(fm))
   |> Envelope.sin_tuple(2.0)
   |> Stream.map(fn {frames, mul} -> Ma.mul(frames, mul * 0.4) end)
   ```

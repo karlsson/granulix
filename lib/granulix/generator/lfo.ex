@@ -16,16 +16,20 @@ defmodule Granulix.Generator.Lfo do
       fm = Lfo.triangle(ctx, 4) |> Lfo.nma(40, 420)
 
       # You can have a stream as modulating frequency input for osc
-      sinosc = Granulix.Stream.new(Oscillator.sin(rate, fm))
+      sinosc = SC.Plugin.stream(Oscillator.sin(fm))
 
   You can also use the Stream module zip function to insert LFOs,
   here moving sound between left and right channel every second:
 
-      panmove = Lfo.triangle(ctx, 1.0) |> Lfo.nma(0.8, 0.1)
+      panmove = Lfo.triangle(ctx, 1.0) |> Stream.map(fn val -> val * 0.9) end)
 
       sinosc
       |> Stream.zip(panmove)
       |> Stream.map(fn {x, y} -> Granulix.Util.pan(x, y) end)
+
+  Actually the pan function can take a stream directly and so:
+
+     sinosc |> Granulix.Util.pan(panmove)
   """
 
 

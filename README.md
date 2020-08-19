@@ -12,7 +12,7 @@ Normally one do not need to create the binary arrays oneself, but instead use so
 
 Many modules like the Biquad, Bitcrusher and Moog filters have used the [Synthex](https://github.com/bitgamma/synthex) application as input and been converted to use NIFs.
 
-Granulix uses NIFs for generating and transforming the frames in a similar way as Supercollider (SC) uses UGens. The [granulix_analog_echo](https://github.com/karlsson/granulix_analog_echo) plugin application is translated from the SC [AnalogEcho](https://github.com/supercollider/example-plugins/blob/master/03-AnalogEcho/AnalogEcho.cpp) example as a comparison. The plugin is pulled in in Granulix as a dependency.
+Granulix uses NIFs for generating and transforming the frames in a similar way as Supercollider (SC) uses UGens. The [granulix_analog_echo](https://github.com/karlsson/sc_plugin_nifs/blob/master/lib/sc/reverb/analog_echo.ex) plugin application is translated from the SC [AnalogEcho](https://github.com/supercollider/example-plugins/blob/master/03-AnalogEcho/AnalogEcho.cpp) example as a comparison. The plugin is pulled in in Granulix as a dependency.
 
 NIF resources are created to keep state in the C-code between subsequent calls for frames generation or transformation (filtering etc.). A reference to the resource is passed to the Elixir side for this.
 
